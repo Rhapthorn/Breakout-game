@@ -1,0 +1,37 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Diagnostic output
+hs_err_pid*
+
+# Dependency directories
+/node_modules
+
+# Build outputs
+/dist
+/dist-ssr
+/release
+/.vite
+
+# Editor/IDE specific files (JetBrains WebStorm & VSCode)
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

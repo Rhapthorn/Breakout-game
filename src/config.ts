@@ -1,0 +1,34 @@
+// src/config.ts
+export const CONFIG = {
+    GAME_WIDTH: 800,
+    GAME_HEIGHT: 600,
+    TICK_RATE: 1000 / 60,
+    BALL_RADIUS: 6,
+    BALL_BASE_SPEED: 400, // pixels per second
+    BALL_MAX_SPEED: 800,
+    PADDLE_WIDTH: 100,
+    PADDLE_HEIGHT: 12,
+    PADDLE_ACCEL: 2500,
+    PADDLE_FRICTION: 0.8,
+    PADDLE_MAX_SPEED: 800,
+    BRICK_ROWS: 8,
+    BRICK_COLS: 14,
+    BRICK_SPACING: 4,
+    BRICK_TOP_OFFSET: 60,
+    POWERUP_SIZE: 16,
+    POWERUP_SPEED: 150,
+    POWERUP_DURATION: 10000, // ms
+    COLORS: {
+        BRICK_1: '#ef476f',
+        BRICK_2: '#f78c6b',
+        BRICK_3: '#ffd166',
+        BRICK_IND: '#7d8597',
+        PADDLE: '#06d6a0',
+        BALL: '#ffffff',
+        TEXT: '#ffffff',
+        POWERUP_WIDE: '#118ab2',
+        POWERUP_MULTI: '#073b4c',
+        POWERUP_SLOW: '#9b5de5',
+        POWERUP_LIFE: '#f15bb5'
+    }
+};
