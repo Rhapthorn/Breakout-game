@@ -34,6 +34,10 @@ export class Powerup implements Rect {
                 return CONFIG.COLORS.POWERUP_SLOW;
             case PowerupType.ExtraLife:
                 return CONFIG.COLORS.POWERUP_LIFE;
+            case PowerupType.Magnetic:
+                return CONFIG.COLORS.POWERUP_MAGNET;
+            case PowerupType.Laser:
+                return CONFIG.COLORS.POWERUP_LASER;
         }
     }
 
@@ -47,6 +51,10 @@ export class Powerup implements Rect {
                 return 'S';
             case PowerupType.ExtraLife:
                 return '♥';
+            case PowerupType.Magnetic:
+                return 'U';
+            case PowerupType.Laser:
+                return 'L';
         }
     }
 }

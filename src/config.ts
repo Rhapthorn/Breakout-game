@@ -4,20 +4,24 @@ export const CONFIG = {
     GAME_HEIGHT: 600,
     TICK_RATE: 1000 / 60,
     BALL_RADIUS: 6,
-    BALL_BASE_SPEED: 400, // pixels per second
+    BALL_BASE_SPEED: 400,
     BALL_MAX_SPEED: 800,
     PADDLE_WIDTH: 100,
     PADDLE_HEIGHT: 12,
-    PADDLE_ACCEL: 2500,
+    PADDLE_ACCEL: 5000,
     PADDLE_FRICTION: 0.8,
-    PADDLE_MAX_SPEED: 800,
+    PADDLE_MAX_SPEED: 1200,
     BRICK_ROWS: 8,
     BRICK_COLS: 14,
     BRICK_SPACING: 4,
     BRICK_TOP_OFFSET: 60,
     POWERUP_SIZE: 16,
     POWERUP_SPEED: 150,
-    POWERUP_DURATION: 10000, // ms
+    POWERUP_DURATION: 10000,
+    LASER_SPEED: 600,
+    LASER_WIDTH: 4,
+    LASER_HEIGHT: 16,
+    LASER_COOLDOWN: 0.5,
     COLORS: {
         BRICK_1: '#ef476f',
         BRICK_2: '#f78c6b',
@@ -29,6 +33,9 @@ export const CONFIG = {
         POWERUP_WIDE: '#118ab2',
         POWERUP_MULTI: '#073b4c',
         POWERUP_SLOW: '#9b5de5',
-        POWERUP_LIFE: '#f15bb5'
+        POWERUP_LIFE: '#f15bb5',
+        POWERUP_MAGNET: '#e9c46a',
+        POWERUP_LASER: '#e63946',
+        LASER: '#ffb703'
     }
 };

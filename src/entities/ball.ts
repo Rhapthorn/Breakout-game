@@ -14,6 +14,7 @@ export class Ball {
     r: number = CONFIG.BALL_RADIUS;
     active: boolean = false;
     stuckToPaddle: boolean = true;
+    stuckOffset: number = 0;
     speedMult: number = 1;
     history: Position[] = [];
 
@@ -24,12 +25,14 @@ export class Ball {
         this.vy = vy;
         this.active = true;
         this.stuckToPaddle = false;
+        this.stuckOffset = 0;
         this.history = [];
     }
 
     reset() {
         this.active = true;
         this.stuckToPaddle = true;
+        this.stuckOffset = 0;
         this.speedMult = 1;
         this.history = [];
     }
@@ -37,17 +40,30 @@ export class Ball {
     launch(paddleX: number, paddleW: number) {
         if (!this.stuckToPaddle) return;
         this.stuckToPaddle = false;
-        this.x = paddleX + paddleW / 2;
+        this.x = paddleX + paddleW / 2 + this.stuckOffset;
         this.y = CONFIG.GAME_HEIGHT - 40 - this.r - 1;
-        this.vx = (Math.random() - 0.5) * 200;
-        this.vy = -CONFIG.BALL_BASE_SPEED;
+
+        // Calculate bounce angle based on the explicit hit offset
+        const normalizedHit = this.stuckOffset / (paddleW / 2);
+        const angle = normalizedHit * (Math.PI / 3);
+
+        const baseSpeed = CONFIG.BALL_BASE_SPEED * this.speedMult;
+        this.vx = Math.sin(angle) * baseSpeed;
+        this.vy = -Math.cos(angle) * baseSpeed;
+
+        // Anti-stall: if launched perfectly straight up, inject a tiny bit of horizontal velocity
+        if (Math.abs(this.vx) < 5) {
+            this.vx = (Math.random() - 0.5) * 50;
+        }
+
+        this.stuckOffset = 0;
     }
 
     update(paddleX: number, paddleW: number) {
         if (!this.active) return;
 
         if (this.stuckToPaddle) {
-            this.x = paddleX + paddleW / 2;
+            this.x = paddleX + paddleW / 2 + this.stuckOffset;
             this.y = CONFIG.GAME_HEIGHT - 40 - this.r - 1;
             return;
         }

@@ -11,7 +11,9 @@ export enum PowerupType {
     Wide,
     Multi,
     Slow,
-    ExtraLife
+    ExtraLife,
+    Magnetic,
+    Laser
 }
 
 export interface Rect {

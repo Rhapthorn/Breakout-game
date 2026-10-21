@@ -21,6 +21,7 @@ export class Game {
     balls: Ball[] = [];
     bricks: Brick[] = [];
     powerups: Powerup[] = [];
+    lasers: Rect[] = [];
 
     currentLevel = 0;
     lives = 3;
@@ -28,6 +29,7 @@ export class Game {
     highScore = 0;
     combo = 0;
     hitStopTimer = 0;
+    laserTimer = 0;
 
     activePowerups: Map<PowerupType, number> = new Map();
 
@@ -70,6 +72,7 @@ export class Game {
         this.addBall().reset();
         this.paddle.reset();
         this.powerups = [];
+        this.lasers = [];
         this.activePowerups.clear();
         this.combo = 0;
         this.hitStopTimer = 0;
@@ -120,8 +123,6 @@ export class Game {
 
         if (this.state !== GameState.Playing) return;
 
-        // --- HIT STOP LOGIC ---
-        // If we are in hit-stop, we freeze game physics and input, but still render.
         if (this.hitStopTimer > 0) {
             this.hitStopTimer -= dt;
             return;
@@ -148,7 +149,53 @@ export class Game {
         }
         this.powerups = this.powerups.filter(p => p.active);
 
-        // Record ball history for trails before moving them
+        if (this.activePowerups.has(PowerupType.Laser)) {
+            this.laserTimer -= dt;
+            if (this.laserTimer <= 0) {
+                this.laserTimer = CONFIG.LASER_COOLDOWN;
+                this.lasers.push({
+                    x: this.paddle.x + 8,
+                    y: this.paddle.y,
+                    w: CONFIG.LASER_WIDTH,
+                    h: CONFIG.LASER_HEIGHT
+                });
+                this.lasers.push({
+                    x: this.paddle.x + this.paddle.w - 8 - CONFIG.LASER_WIDTH,
+                    y: this.paddle.y,
+                    w: CONFIG.LASER_WIDTH,
+                    h: CONFIG.LASER_HEIGHT
+                });
+                AudioSys.playTone(700, 'sawtooth', 0.05);
+            }
+        }
+
+        for (let i = this.lasers.length - 1; i >= 0; i--) {
+            const l = this.lasers[i];
+            l.y -= CONFIG.LASER_SPEED * dt;
+            let hit = false;
+
+            if (l.y + l.h < 0) {
+                hit = true;
+            } else {
+                for (const brick of this.bricks) {
+                    if (!brick.active) continue;
+                    if (this.rectIntersect(l, brick)) {
+                        hit = true;
+                        if (brick.hit()) {
+                            this.score += 10;
+                            this.particles.emit(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.getColor(), 5);
+                            AudioSys.playTone(300, 'square', 0.05);
+                        } else {
+                            AudioSys.playTone(250, 'triangle', 0.05);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (hit) this.lasers.splice(i, 1);
+        }
+
         for (const ball of this.balls) {
             if (ball.active && !ball.stuckToPaddle) {
                 ball.history.unshift({x: ball.x, y: ball.y});
@@ -181,6 +228,7 @@ export class Game {
         const activeBalls = this.balls.filter(b => b.active);
         if (activeBalls.length === 0) {
             this.lives--;
+            this.lasers = [];
             this.renderer.triggerShake(300);
             AudioSys.playTone(150, 'sawtooth', 0.4);
             if (this.lives <= 0) {
@@ -241,6 +289,13 @@ export class Game {
 
             ball.y = this.paddle.y - ball.r;
 
+            if (this.activePowerups.has(PowerupType.Magnetic)) {
+                ball.stuckToPaddle = true;
+                ball.stuckOffset = ball.x - (this.paddle.x + this.paddle.w / 2);
+                AudioSys.playTone(500, 'sine', 0.1);
+                return;
+            }
+
             const hitPoint = ball.x - (this.paddle.x + this.paddle.w / 2);
             const normalizedHit = hitPoint / (this.paddle.w / 2);
             const angle = normalizedHit * (Math.PI / 3);
@@ -276,11 +331,11 @@ export class Game {
                     this.score += 10 * this.combo;
                     this.particles.emit(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.getColor(), 10);
 
-                    // Trigger Hit-Stop (40ms freeze)
                     this.hitStopTimer = 0.04;
 
-                    if (!brick.isIndestructible && Math.random() < 0.15) {
-                        const types = [PowerupType.Wide, PowerupType.Multi, PowerupType.Slow, PowerupType.ExtraLife];
+                    // Increased drop chance to 30%
+                    if (!brick.isIndestructible && Math.random() < 0.30) {
+                        const types = [PowerupType.Wide, PowerupType.Multi, PowerupType.Slow, PowerupType.ExtraLife, PowerupType.Magnetic, PowerupType.Laser];
                         const type = types[Math.floor(Math.random() * types.length)];
                         this.powerups.push(new Powerup(brick.x + brick.w / 2 - CONFIG.POWERUP_SIZE / 2, brick.y, type));
                     }
@@ -317,6 +372,9 @@ export class Game {
                 this.lives++;
                 this.activePowerups.delete(type);
                 break;
+            case PowerupType.Magnetic:
+            case PowerupType.Laser:
+                break;
         }
     }
 
@@ -327,6 +385,9 @@ export class Game {
                 break;
             case PowerupType.Slow:
                 this.balls.forEach(b => b.speedMult = 1.0);
+                break;
+            case PowerupType.Magnetic:
+                this.balls.forEach(b => b.launch(this.paddle.x, this.paddle.w));
                 break;
         }
     }
@@ -340,6 +401,10 @@ export class Game {
             }
         }
 
+        for (const l of this.lasers) {
+            this.renderer.drawRect(l.x, l.y, l.w, l.h, CONFIG.COLORS.LASER, 2);
+        }
+
         for (const p of this.powerups) {
             this.renderer.drawRect(p.x, p.y, p.w, p.h, p.getColor(), 4);
             this.renderer.drawText(p.getLetter(), p.x + p.w / 2, p.y + p.h / 2, 12, 'center');
@@ -347,18 +412,25 @@ export class Game {
 
         this.particles.draw(this.renderer);
 
+        if (this.activePowerups.has(PowerupType.Magnetic)) {
+            this.renderer.drawRect(this.paddle.x, this.paddle.y - 4, this.paddle.w, 4, 'rgba(233, 196, 106, 0.4)', 2);
+        }
+
         this.renderer.drawRect(this.paddle.x, this.paddle.y, this.paddle.w, this.paddle.h, CONFIG.COLORS.PADDLE, 6);
+
+        if (this.activePowerups.has(PowerupType.Laser)) {
+            this.renderer.drawRect(this.paddle.x + 6, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWERUP_LASER, 2);
+            this.renderer.drawRect(this.paddle.x + this.paddle.w - 14, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWERUP_LASER, 2);
+        }
 
         for (const ball of this.balls) {
             if (ball.active) {
-                // Draw trailing ghost balls
                 for (let i = 0; i < ball.history.length; i++) {
                     const pos = ball.history[i];
                     const alpha = 0.5 * (1 - (i / ball.history.length));
                     const trailR = ball.r * (1 - (i / ball.history.length) * 0.4);
                     this.renderer.drawCircle(pos.x, pos.y, trailR, CONFIG.COLORS.BALL, alpha);
                 }
-                // Draw actual ball
                 this.renderer.drawCircle(ball.x, ball.y, ball.r, CONFIG.COLORS.BALL, 1.0);
             }
         }
