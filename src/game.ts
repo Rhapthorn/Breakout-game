@@ -11,6 +11,7 @@ import {Paddle} from './entities/paddle';
 import {Ball} from './entities/ball';
 import {Brick} from './entities/brick';
 import {Powerup} from './entities/powerup';
+import {Boss} from './entities/boss';
 
 export class Game {
     state: GameState = GameState.Menu;
@@ -22,6 +23,8 @@ export class Game {
     bricks: Brick[] = [];
     powerups: Powerup[] = [];
     lasers: Rect[] = [];
+    hazards: Rect[] = [];
+    boss: Boss | null = null;
 
     currentLevel = 0;
     lives = 3;
@@ -49,21 +52,29 @@ export class Game {
 
     loadLevel(levelIndex: number) {
         this.bricks = [];
-        const layout = LEVELS[levelIndex % LEVELS.length];
+        this.boss = null;
+        this.hazards = [];
 
-        const bw = (CONFIG.GAME_WIDTH - (CONFIG.BRICK_COLS + 1) * CONFIG.BRICK_SPACING) / CONFIG.BRICK_COLS;
-        const bh = 20;
+        const isBossLevel = (levelIndex + 1) % 5 === 0;
 
-        for (let r = 0; r < layout.length; r++) {
-            const rowStr = layout[r];
-            for (let c = 0; c < rowStr.length; c++) {
-                const char = rowStr[c];
-                if (char !== ' ') {
-                    const hp = char === 'X' ? 1 : parseInt(char, 10);
-                    const isInd = char === 'X';
-                    const x = CONFIG.BRICK_SPACING + c * (bw + CONFIG.BRICK_SPACING);
-                    const y = CONFIG.BRICK_TOP_OFFSET + r * (bh + CONFIG.BRICK_SPACING);
-                    this.bricks.push(new Brick(x, y, bw, bh, hp, isInd));
+        if (isBossLevel) {
+            this.boss = new Boss();
+        } else {
+            const layout = LEVELS[levelIndex % LEVELS.length];
+            const bw = (CONFIG.GAME_WIDTH - (CONFIG.BRICK_COLS + 1) * CONFIG.BRICK_SPACING) / CONFIG.BRICK_COLS;
+            const bh = 20;
+
+            for (let r = 0; r < layout.length; r++) {
+                const rowStr = layout[r];
+                for (let c = 0; c < rowStr.length; c++) {
+                    const char = rowStr[c];
+                    if (char !== ' ') {
+                        const hp = char === 'X' ? 1 : parseInt(char, 10);
+                        const isInd = char === 'X';
+                        const x = CONFIG.BRICK_SPACING + c * (bw + CONFIG.BRICK_SPACING);
+                        const y = CONFIG.BRICK_TOP_OFFSET + r * (bh + CONFIG.BRICK_SPACING);
+                        this.bricks.push(new Brick(x, y, bw, bh, hp, isInd));
+                    }
                 }
             }
         }
@@ -83,7 +94,7 @@ export class Game {
         this.lives = 3;
         this.score = 0;
         this.currentLevel = 0;
-        this.loadLevel(0);
+        this.loadLevel(this.currentLevel);
     }
 
     handleInput() {
@@ -139,6 +150,34 @@ export class Game {
         this.paddle.update(dt);
         this.particles.update(dt);
 
+        // Boss Update & Hazard Spawning
+        if (this.boss?.active) {
+            this.boss.update(dt);
+            if (this.boss.hazardTimer <= 0) {
+                this.boss.hazardTimer = 1.0 + Math.random() * 1.5;
+                this.hazards.push({
+                    x: this.boss.x + this.boss.w / 2 - CONFIG.HAZARD_SIZE / 2,
+                    y: this.boss.y + this.boss.h,
+                    w: CONFIG.HAZARD_SIZE,
+                    h: CONFIG.HAZARD_SIZE
+                });
+                AudioSys.playTone(150, 'triangle', 0.1);
+            }
+        }
+
+        // Hazard Update & Paddle Collision
+        for (let i = this.hazards.length - 1; i >= 0; i--) {
+            const h = this.hazards[i];
+            h.y += CONFIG.HAZARD_SPEED * dt;
+
+            if (h.y > CONFIG.GAME_HEIGHT) {
+                this.hazards.splice(i, 1);
+            } else if (this.rectIntersect(h, this.paddle)) {
+                this.hazards.splice(i, 1);
+                this.loseLife();
+            }
+        }
+
         for (const p of this.powerups) {
             p.update(dt);
             if (p.active && this.rectIntersect(p, this.paddle)) {
@@ -176,6 +215,12 @@ export class Game {
 
             if (l.y + l.h < 0) {
                 hit = true;
+            } else if (this.boss?.active && this.rectIntersect(l, this.boss)) {
+                hit = true;
+                this.boss.hit();
+                this.score += 20;
+                this.particles.emit(l.x + l.w / 2, l.y, CONFIG.COLORS.BOSS, 5);
+                AudioSys.playTone(200, 'square', 0.05);
             } else {
                 for (const brick of this.bricks) {
                     if (!brick.active) continue;
@@ -217,39 +262,51 @@ export class Game {
                 this.checkWallCollision(ball, true);
                 this.checkPaddleCollision(ball);
                 this.checkBrickCollision(ball, true);
+                this.checkBossCollision(ball, true);
 
                 ball.y += ball.vy * subDt;
                 this.checkWallCollision(ball, false);
                 this.checkPaddleCollision(ball);
                 this.checkBrickCollision(ball, false);
+                this.checkBossCollision(ball, false);
             }
         }
 
         const activeBalls = this.balls.filter(b => b.active);
         if (activeBalls.length === 0) {
-            this.lives--;
-            this.lasers = [];
-            this.renderer.triggerShake(300);
-            AudioSys.playTone(150, 'sawtooth', 0.4);
-            if (this.lives <= 0) {
-                this.state = GameState.GameOver;
-                if (this.score > this.highScore) {
-                    this.highScore = this.score;
-                    Storage.setHighScore(this.score);
-                }
-            } else {
-                this.balls = [];
-                this.addBall().reset();
-                this.paddle.reset();
-                this.combo = 0;
-            }
+            this.loseLife();
         } else {
             this.balls = activeBalls;
         }
 
         const hasDestructible = this.bricks.some(b => b.active && !b.isIndestructible);
-        if (!hasDestructible) {
+        const bossAlive = this.boss?.active ?? false;
+
+        if (!hasDestructible && !bossAlive) {
             this.state = GameState.LevelComplete;
+        }
+    }
+
+    loseLife() {
+        this.lives--;
+        this.lasers = [];
+        this.hazards = [];
+        this.activePowerups.clear();
+        this.paddle.setWidthMultiplier(1.0);
+        this.renderer.triggerShake(400);
+        AudioSys.playTone(150, 'sawtooth', 0.4);
+
+        if (this.lives <= 0) {
+            this.state = GameState.GameOver;
+            if (this.score > this.highScore) {
+                this.highScore = this.score;
+                Storage.setHighScore(this.score);
+            }
+        } else {
+            this.balls = [];
+            this.addBall().reset();
+            this.paddle.reset();
+            this.combo = 0;
         }
     }
 
@@ -312,6 +369,8 @@ export class Game {
     }
 
     checkBrickCollision(ball: Ball, isX: boolean) {
+        if (this.boss?.active) return; // Bricks and Boss don't spawn together
+
         const br = {x: ball.x - ball.r, y: ball.y - ball.r, w: ball.r * 2, h: ball.r * 2};
 
         for (const brick of this.bricks) {
@@ -333,7 +392,6 @@ export class Game {
 
                     this.hitStopTimer = 0.04;
 
-                    // Increased drop chance to 30%
                     if (!brick.isIndestructible && Math.random() < 0.30) {
                         const types = [PowerupType.Wide, PowerupType.Multi, PowerupType.Slow, PowerupType.ExtraLife, PowerupType.Magnetic, PowerupType.Laser];
                         const type = types[Math.floor(Math.random() * types.length)];
@@ -345,6 +403,29 @@ export class Game {
                 }
                 break;
             }
+        }
+    }
+
+    checkBossCollision(ball: Ball, isX: boolean) {
+        if (!this.boss?.active) return;
+
+        const br = {x: ball.x - ball.r, y: ball.y - ball.r, w: ball.r * 2, h: ball.r * 2};
+
+        if (this.rectIntersect(br, this.boss)) {
+            if (isX) {
+                ball.vx *= -1;
+                ball.x += ball.vx > 0 ? 1 : -1;
+            } else {
+                ball.vy *= -1;
+                ball.y += ball.vy > 0 ? 1 : -1;
+            }
+
+            this.boss.hit();
+            this.combo++;
+            this.score += 50 * this.combo;
+            this.particles.emit(ball.x, ball.y, CONFIG.COLORS.BOSS, 15);
+            this.hitStopTimer = 0.06; // Heavier hit-stop for boss
+            AudioSys.playTone(150 + this.combo * 10, 'sawtooth', 0.15);
         }
     }
 
@@ -366,7 +447,7 @@ export class Game {
                 }
                 break;
             case PowerupType.Slow:
-                this.balls.forEach(b => b.speedMult = 0.6);
+                this.balls.forEach(b => b.speedMulti = 0.6);
                 break;
             case PowerupType.ExtraLife:
                 this.lives++;
@@ -384,7 +465,7 @@ export class Game {
                 this.paddle.setWidthMultiplier(1.0);
                 break;
             case PowerupType.Slow:
-                this.balls.forEach(b => b.speedMult = 1.0);
+                this.balls.forEach(b => b.speedMulti = 1.0);
                 break;
             case PowerupType.Magnetic:
                 this.balls.forEach(b => b.launch(this.paddle.x, this.paddle.w));
@@ -399,6 +480,19 @@ export class Game {
             if (brick.active) {
                 this.renderer.drawRect(brick.x, brick.y, brick.w, brick.h, brick.getColor(), 2);
             }
+        }
+
+        if (this.boss?.active) {
+            this.renderer.drawRect(this.boss.x, this.boss.y, this.boss.w, this.boss.h, CONFIG.COLORS.BOSS, 8);
+            this.renderer.drawRect(this.boss.x + this.boss.w / 2 - 15, this.boss.y + this.boss.h / 2 - 10, 30, 20, '#111', 4);
+
+            const hpPercent = this.boss.hp / this.boss.maxHp;
+            this.renderer.drawRect(this.boss.x, this.boss.y - 12, this.boss.w, 6, 'rgba(255,0,0,0.3)');
+            this.renderer.drawRect(this.boss.x, this.boss.y - 12, this.boss.w * hpPercent, 6, '#00ff00');
+        }
+
+        for (const h of this.hazards) {
+            this.renderer.drawCircle(h.x + h.w / 2, h.y + h.h / 2, h.w / 2, CONFIG.COLORS.HAZARD);
         }
 
         for (const l of this.lasers) {

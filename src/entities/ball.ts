@@ -15,7 +15,7 @@ export class Ball {
     active: boolean = false;
     stuckToPaddle: boolean = true;
     stuckOffset: number = 0;
-    speedMult: number = 1;
+    speedMulti: number = 1;
     history: Position[] = [];
 
     spawn(x: number, y: number, vx: number, vy: number) {
@@ -33,7 +33,7 @@ export class Ball {
         this.active = true;
         this.stuckToPaddle = true;
         this.stuckOffset = 0;
-        this.speedMult = 1;
+        this.speedMulti = 1;
         this.history = [];
     }
 
@@ -47,7 +47,7 @@ export class Ball {
         const normalizedHit = this.stuckOffset / (paddleW / 2);
         const angle = normalizedHit * (Math.PI / 3);
 
-        const baseSpeed = CONFIG.BALL_BASE_SPEED * this.speedMult;
+        const baseSpeed = CONFIG.BALL_BASE_SPEED * this.speedMulti;
         this.vx = Math.sin(angle) * baseSpeed;
         this.vy = -Math.cos(angle) * baseSpeed;
 
@@ -69,7 +69,7 @@ export class Ball {
         }
 
         const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const targetSpeed = Math.min(CONFIG.BALL_BASE_SPEED * this.speedMult, CONFIG.BALL_MAX_SPEED);
+        const targetSpeed = Math.min(CONFIG.BALL_BASE_SPEED * this.speedMulti, CONFIG.BALL_MAX_SPEED);
 
         if (Math.abs(currentSpeed - targetSpeed) > 1 && currentSpeed > 0) {
             const ratio = targetSpeed / currentSpeed;

@@ -22,6 +22,8 @@ export const CONFIG = {
     LASER_WIDTH: 4,
     LASER_HEIGHT: 16,
     LASER_COOLDOWN: 0.5,
+    HAZARD_SPEED: 250,
+    HAZARD_SIZE: 12,
     COLORS: {
         BRICK_1: '#ef476f',
         BRICK_2: '#f78c6b',
@@ -36,6 +38,8 @@ export const CONFIG = {
         POWERUP_LIFE: '#f15bb5',
         POWERUP_MAGNET: '#e9c46a',
         POWERUP_LASER: '#e63946',
-        LASER: '#ffb703'
+        LASER: '#ffb703',
+        BOSS: '#8338ec',
+        HAZARD: '#ff006e'
     }
 };
