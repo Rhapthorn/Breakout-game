@@ -1,16 +1,16 @@
-[breakout_project_documentation.md](https://github.com/user-attachments/files/33866896/breakout_project_documentation.md)
+[project_readme.md](https://github.com/user-attachments/files/33871809/project_readme.md)
 # Breakout
 
 A modern, Windows-friendly desktop reimagining of the classic arcade game Breakout, built with HTML5 Canvas, TypeScript, and Electron.
 
 ## Overview
 
-This project elevates the traditional brick-breaking formula with an escalating 15-level campaign, intense boss encounters, and a physics-driven combo system. Packaged as a native Windows desktop application via `electron-builder`, it features a locked 800x600 arcade-style resolution, custom iconography, and persistent state saving for a seamless standalone experience.
+This project elevates the traditional brick-breaking formula with an escalating 15-level campaign, intense multi-phase FSM boss encounters, and a physics-driven combo system. Packaged as a native Windows desktop application via `electron-builder`, it features a locked 800x600 arcade-style resolution, custom iconography, and persistent state saving for a seamless standalone experience.
 
 ## Key Features
 
-* **15-Level Campaign & Boss Fights:** Progressive difficulty scaling, culminating in challenging Tier-based boss encounters every 5 levels.
-* **Dynamic Visuals:** A continuous parallax starfield with background colors that shift and intensify as the player advances through the galaxy.
+* **15-Level Campaign & FSM Boss Fights:** Progressive difficulty scaling, culminating in challenging Finite State Machine (FSM) boss encounters featuring 4 distinct attack patterns (Radial Bursts, Shield Minions, Orbital Strikes, and Gravity Orbs) across dual phases.
+* **Dynamic Visuals:** A continuous parallax starfield with background colors that shift and intensify as the player advances through the galaxy, complete with dynamic particle effects and invulnerability flashing.
 * **Physics & Combo System:** Angle-based ball deflection, hit-stop mechanics on impact, and score multipliers for consecutive brick destructions.
 * **Power-Up Arsenal:** 
   * 🟦 **Wide:** Expands paddle width.
