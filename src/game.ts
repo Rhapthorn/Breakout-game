@@ -88,14 +88,16 @@ export class Game {
         this.combo = 0;
         this.hitStopTimer = 0;
         this.state = GameState.Playing;
+
+        // Save progress at the start of every new level
+        Storage.saveProgress(this.currentLevel, this.score, this.lives);
     }
 
     restart() {
         this.lives = 3;
         this.score = 0;
-        // Keep this at 4 for testing the Level 5 boss instantly,
-        // or set to 0 to play normally.
         this.currentLevel = 0;
+        Storage.clearProgress();
         this.loadLevel(this.currentLevel);
     }
 
@@ -104,17 +106,30 @@ export class Game {
 
         switch (this.state) {
             case GameState.Menu:
-            case GameState.GameOver:
-            case GameState.LevelComplete:
                 if (Input.consume('Space') || Input.consume('Enter')) {
                     AudioSys.init();
-                    if (this.state === GameState.GameOver) this.restart();
-                    else if (this.state === GameState.LevelComplete) {
-                        this.currentLevel++;
+                    const saved = Storage.loadProgress();
+                    if (saved) {
+                        this.lives = saved.lives;
+                        this.score = saved.score;
+                        this.currentLevel = saved.level;
                         this.loadLevel(this.currentLevel);
                     } else {
                         this.restart();
                     }
+                }
+                break;
+            case GameState.GameOver:
+                if (Input.consume('Space') || Input.consume('Enter')) {
+                    AudioSys.init();
+                    this.restart();
+                }
+                break;
+            case GameState.LevelComplete:
+                if (Input.consume('Space') || Input.consume('Enter')) {
+                    AudioSys.init();
+                    this.currentLevel++;
+                    this.loadLevel(this.currentLevel);
                 }
                 break;
             case GameState.Playing:
@@ -145,14 +160,13 @@ export class Game {
             this.activePowerups.set(type, time - dt * 1000);
             if (this.activePowerups.get(type)! <= 0) {
                 this.activePowerups.delete(type);
-                this.removePowerEffect(type);
+                this.removePowerupEffect(type);
             }
         }
 
         this.paddle.update(dt);
         this.particles.update(dt);
 
-        // Boss Update & Scaled Hazard Spawning
         if (this.boss?.active) {
             this.boss.update(dt);
             if (this.boss.hazardTimer <= 0) {
@@ -183,7 +197,7 @@ export class Game {
             p.update(dt);
             if (p.active && this.rectIntersect(p, this.paddle)) {
                 p.active = false;
-                this.applyPower(p.type);
+                this.applyPowerup(p.type);
                 AudioSys.playTone(600, 'sine', 0.2);
             }
         }
@@ -299,6 +313,8 @@ export class Game {
 
         if (this.lives <= 0) {
             this.state = GameState.GameOver;
+            Storage.clearProgress(); // Wipe save if you completely die
+
             if (this.score > this.highScore) {
                 this.highScore = this.score;
                 Storage.setHighScore(this.score);
@@ -308,6 +324,8 @@ export class Game {
             this.addBall().reset();
             this.paddle.reset();
             this.combo = 0;
+            // Save the lost life state so they can't exploit closing the app
+            Storage.saveProgress(this.currentLevel, this.score, this.lives);
         }
     }
 
@@ -430,7 +448,7 @@ export class Game {
         }
     }
 
-    applyPower(type: PowerupType) {
+    applyPowerup(type: PowerupType) {
         this.activePowerups.set(type, CONFIG.POWERUP_DURATION);
         switch (type) {
             case PowerupType.Wide:
@@ -448,7 +466,6 @@ export class Game {
                 }
                 break;
             case PowerupType.Slow:
-                // Fixed: speedMult -> speedMulti
                 this.balls.forEach(b => b.speedMulti = 0.6);
                 break;
             case PowerupType.ExtraLife:
@@ -461,13 +478,12 @@ export class Game {
         }
     }
 
-    removePowerEffect(type: PowerupType) {
+    removePowerupEffect(type: PowerupType) {
         switch (type) {
             case PowerupType.Wide:
                 this.paddle.setWidthMultiplier(1.0);
                 break;
             case PowerupType.Slow:
-                // Fixed: speedMult -> speedMulti
                 this.balls.forEach(b => b.speedMulti = 1.0);
                 break;
             case PowerupType.Magnetic:
@@ -534,7 +550,9 @@ export class Game {
 
         this.renderer.drawText(`SCORE: ${this.score}`, 10, 20, 16);
         this.renderer.drawText(`HI: ${this.highScore}`, 10, 40, 14);
+        this.renderer.drawText(`LEVEL: ${this.currentLevel + 1}`, 10, 60, 12);
         this.renderer.drawText(`LIVES: ${this.lives}`, CONFIG.GAME_WIDTH - 80, 20, 16);
+
         if (this.combo > 1) {
             this.renderer.drawText(`${this.combo}x COMBO`, CONFIG.GAME_WIDTH / 2, 20, 16, 'center');
         }
@@ -544,9 +562,10 @@ export class Game {
         }
 
         if (this.state === GameState.Menu) {
+            const hasSave = !!Storage.loadProgress();
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
             this.renderer.drawText('BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 48, 'center');
-            this.renderer.drawText('Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 24, 'center');
+            this.renderer.drawText(hasSave ? 'Press Space to Resume' : 'Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 24, 'center');
         } else if (this.state === GameState.Paused) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.5)');
             this.renderer.drawText('PAUSED', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 32, 'center');
