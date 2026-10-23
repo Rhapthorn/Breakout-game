@@ -5,8 +5,8 @@ import {CONFIG} from '../config';
 export class Powerup implements Rect {
     x: number;
     y: number;
-    w: number = CONFIG.POWERUP_SIZE;
-    h: number = CONFIG.POWERUP_SIZE;
+    w: number = CONFIG.POWER_SIZE;
+    h: number = CONFIG.POWER_SIZE;
     type: PowerupType;
     active: boolean = true;
 
@@ -18,7 +18,7 @@ export class Powerup implements Rect {
 
     update(dt: number) {
         if (!this.active) return;
-        this.y += CONFIG.POWERUP_SPEED * dt;
+        this.y += CONFIG.POWER_SPEED * dt;
         if (this.y > CONFIG.GAME_HEIGHT) {
             this.active = false;
         }
@@ -27,17 +27,17 @@ export class Powerup implements Rect {
     getColor(): string {
         switch (this.type) {
             case PowerupType.Wide:
-                return CONFIG.COLORS.POWERUP_WIDE;
+                return CONFIG.COLORS.POWER_WIDE;
             case PowerupType.Multi:
-                return CONFIG.COLORS.POWERUP_MULTI;
+                return CONFIG.COLORS.POWER_MULTI;
             case PowerupType.Slow:
-                return CONFIG.COLORS.POWERUP_SLOW;
+                return CONFIG.COLORS.POWER_SLOW;
             case PowerupType.ExtraLife:
-                return CONFIG.COLORS.POWERUP_LIFE;
+                return CONFIG.COLORS.POWER_LIFE;
             case PowerupType.Magnetic:
-                return CONFIG.COLORS.POWERUP_MAGNET;
+                return CONFIG.COLORS.POWER_MAGNET;
             case PowerupType.Laser:
-                return CONFIG.COLORS.POWERUP_LASER;
+                return CONFIG.COLORS.POWER_LASER;
         }
     }
 

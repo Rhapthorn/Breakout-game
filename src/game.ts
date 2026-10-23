@@ -122,8 +122,7 @@ export class Game {
     restart() {
         this.lives = 3;
         this.score = 0;
-        this.currentLevel = 14;
-        Storage.clearProgress();
+        this.currentLevel = 0;
         this.loadLevel(this.currentLevel);
     }
 
@@ -450,7 +449,7 @@ export class Game {
                     if (!brick.isIndestructible && Math.random() < 0.30) {
                         const types = [PowerupType.Wide, PowerupType.Multi, PowerupType.Slow, PowerupType.ExtraLife, PowerupType.Magnetic, PowerupType.Laser];
                         const type = types[Math.floor(Math.random() * types.length)];
-                        this.powerups.push(new Powerup(brick.x + brick.w / 2 - CONFIG.POWERUP_SIZE / 2, brick.y, type));
+                        this.powerups.push(new Powerup(brick.x + brick.w / 2 - CONFIG.POWER_SIZE / 2, brick.y, type));
                     }
                     AudioSys.playTone(200 + this.combo * 20, 'square', 0.1);
                 } else {
@@ -485,7 +484,7 @@ export class Game {
     }
 
     applyPowerup(type: PowerupType) {
-        this.activePowerups.set(type, CONFIG.POWERUP_DURATION);
+        this.activePowerups.set(type, CONFIG.POWER_DURATION);
         switch (type) {
             case PowerupType.Wide:
                 this.paddle.setWidthMultiplier(1.5);
@@ -577,8 +576,8 @@ export class Game {
         this.renderer.drawRect(this.paddle.x, this.paddle.y, this.paddle.w, this.paddle.h, CONFIG.COLORS.PADDLE, 6);
 
         if (this.activePowerups.has(PowerupType.Laser)) {
-            this.renderer.drawRect(this.paddle.x + 6, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWERUP_LASER, 2);
-            this.renderer.drawRect(this.paddle.x + this.paddle.w - 14, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWERUP_LASER, 2);
+            this.renderer.drawRect(this.paddle.x + 6, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWER_LASER, 2);
+            this.renderer.drawRect(this.paddle.x + this.paddle.w - 14, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWER_LASER, 2);
         }
 
         for (const ball of this.balls) {
