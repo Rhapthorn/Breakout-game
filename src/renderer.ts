@@ -2,7 +2,7 @@
 import {CONFIG} from './config';
 
 export class Renderer {
-    private ctx: CanvasRenderingContext2D;
+    ctx: CanvasRenderingContext2D;
     private shakeTimer = 0;
 
     constructor(private canvas: HTMLCanvasElement) {

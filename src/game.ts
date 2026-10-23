@@ -42,13 +42,14 @@ export class Game {
     hitStopTimer = 0;
     laserTimer = 0;
 
-    activePowerups: Map<PowerupType, number> = new Map();
+    activePowers: Map<PowerupType, number> = new Map();
 
     constructor(canvas: HTMLCanvasElement) {
         this.renderer = new Renderer(canvas);
         this.particles = new ParticleSystem();
         this.paddle = new Paddle();
         this.highScore = Storage.getHighScore();
+        Storage.clearProgress();
         this.addBall();
 
         // Generate 100 background stars
@@ -111,7 +112,7 @@ export class Game {
         this.paddle.reset();
         this.powerups = [];
         this.lasers = [];
-        this.activePowerups.clear();
+        this.activePowers.clear();
         this.combo = 0;
         this.hitStopTimer = 0;
         this.state = GameState.Playing;
@@ -192,10 +193,10 @@ export class Game {
             return;
         }
 
-        for (const [type, time] of this.activePowerups.entries()) {
-            this.activePowerups.set(type, time - dt * 1000);
-            if (this.activePowerups.get(type)! <= 0) {
-                this.activePowerups.delete(type);
+        for (const [type, time] of this.activePowers.entries()) {
+            this.activePowers.set(type, time - dt * 1000);
+            if (this.activePowers.get(type)! <= 0) {
+                this.activePowers.delete(type);
                 this.removePowerupEffect(type);
             }
         }
@@ -239,7 +240,7 @@ export class Game {
         }
         this.powerups = this.powerups.filter(p => p.active);
 
-        if (this.activePowerups.has(PowerupType.Laser)) {
+        if (this.activePowers.has(PowerupType.Laser)) {
             this.laserTimer -= dt;
             if (this.laserTimer <= 0) {
                 this.laserTimer = CONFIG.LASER_COOLDOWN;
@@ -342,7 +343,7 @@ export class Game {
         this.lives--;
         this.lasers = [];
         this.hazards = [];
-        this.activePowerups.clear();
+        this.activePowers.clear();
         this.paddle.setWidthMultiplier(1.0);
         this.renderer.triggerShake(400);
         AudioSys.playTone(150, 'sawtooth', 0.4);
@@ -400,7 +401,7 @@ export class Game {
 
             ball.y = this.paddle.y - ball.r;
 
-            if (this.activePowerups.has(PowerupType.Magnetic)) {
+            if (this.activePowers.has(PowerupType.Magnetic)) {
                 ball.stuckToPaddle = true;
                 ball.stuckOffset = ball.x - (this.paddle.x + this.paddle.w / 2);
                 AudioSys.playTone(500, 'sine', 0.1);
@@ -484,7 +485,7 @@ export class Game {
     }
 
     applyPowerup(type: PowerupType) {
-        this.activePowerups.set(type, CONFIG.POWER_DURATION);
+        this.activePowers.set(type, CONFIG.POWER_DURATION);
         switch (type) {
             case PowerupType.Wide:
                 this.paddle.setWidthMultiplier(1.5);
@@ -505,7 +506,7 @@ export class Game {
                 break;
             case PowerupType.ExtraLife:
                 this.lives++;
-                this.activePowerups.delete(type);
+                this.activePowers.delete(type);
                 break;
             case PowerupType.Magnetic:
             case PowerupType.Laser:
@@ -546,8 +547,20 @@ export class Game {
         }
 
         if (this.boss?.active) {
-            this.renderer.drawRect(this.boss.x, this.boss.y, this.boss.w, this.boss.h, CONFIG.COLORS.BOSS, 8);
-            this.renderer.drawRect(this.boss.x + this.boss.w / 2 - 15, this.boss.y + this.boss.h / 2 - 10, 30, 20, '#111', 4);
+            const bossColor = this.boss.isInvulnerable ? '#ffffff' : CONFIG.COLORS.BOSS;
+            this.renderer.drawRect(this.boss.x, this.boss.y, this.boss.w, this.boss.h, bossColor, 8);
+
+            if (this.boss) {
+                // Render Orbital Strikes (Red vertical warning columns / laser beams)
+                this.boss.orbitalStrikes.forEach(strike => {
+                    strike.draw(this.renderer.ctx, CONFIG.GAME_HEIGHT);
+                });
+
+                // Render Gravity Orbs (Pulsing purple anomalies)
+                this.boss.gravityOrbs.forEach(orb => {
+                    orb.draw(this.renderer.ctx);
+                });
+            }
 
             const hpPercent = this.boss.hp / this.boss.maxHp;
             this.renderer.drawRect(this.boss.x, this.boss.y - 12, this.boss.w, 6, 'rgba(255,0,0,0.3)');
@@ -569,13 +582,13 @@ export class Game {
 
         this.particles.draw(this.renderer);
 
-        if (this.activePowerups.has(PowerupType.Magnetic)) {
+        if (this.activePowers.has(PowerupType.Magnetic)) {
             this.renderer.drawRect(this.paddle.x, this.paddle.y - 4, this.paddle.w, 4, 'rgba(233, 196, 106, 0.4)', 2);
         }
 
         this.renderer.drawRect(this.paddle.x, this.paddle.y, this.paddle.w, this.paddle.h, CONFIG.COLORS.PADDLE, 6);
 
-        if (this.activePowerups.has(PowerupType.Laser)) {
+        if (this.activePowers.has(PowerupType.Laser)) {
             this.renderer.drawRect(this.paddle.x + 6, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWER_LASER, 2);
             this.renderer.drawRect(this.paddle.x + this.paddle.w - 14, this.paddle.y - 8, 8, 8, CONFIG.COLORS.POWER_LASER, 2);
         }
@@ -621,13 +634,16 @@ export class Game {
             this.renderer.drawText('Press Space to Restart', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
         } else if (this.state === GameState.LevelComplete) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
-            this.renderer.drawText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 36, 'center');
-            this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
-        } else if (this.state === GameState.GameCompleted) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.8)');
-            this.renderer.drawText('YOU SAVED THE GALAXY!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 42, 'center');
-            this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 10, 28, 'center');
-            this.renderer.drawText('Press Space to Play Again', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 20, 'center');
+
+            // If this was the final level (Level 15 / index 14), show victory completion text instead!
+            if (this.currentLevel >= CONFIG.MAX_LEVELS - 1) {
+                this.renderer.drawText('YOU SAVED THE GALAXY!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 42, 'center');
+                this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 10, 28, 'center');
+                this.renderer.drawText('Press Space to Play Again', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 20, 'center');
+            } else {
+                this.renderer.drawText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 36, 'center');
+                this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
+            }
         }
 
         this.renderer.endFrame();
