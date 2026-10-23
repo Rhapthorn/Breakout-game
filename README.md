@@ -1,64 +1,68 @@
-[readme_md.md](https://github.com/user-attachments/files/33765185/readme_md.md)
-# Breakout Engine
+[breakout_project_documentation.md](https://github.com/user-attachments/files/33866896/breakout_project_documentation.md)
+# Breakout
 
-A high-performance, strictly typed Breakout/Arkanoid clone built from scratch using TypeScript and the HTML5 Canvas 2D API. It features a custom engine with sub-stepped continuous collision detection (CCD), procedural audio, dynamic game feel ("juice"), advanced paddle mechanics, boss encounters, and a zero-allocation particle system—wrapped into a native Windows executable via Electron.
+A modern, Windows-friendly desktop reimagining of the classic arcade game Breakout, built with HTML5 Canvas, TypeScript, and Electron.
 
-## Features
+## Overview
 
-*   **Custom Physics Engine:** Fixed-timestep game loop (60 Hz) with sub-stepped continuous collision detection to prevent high-velocity tunneling.
-*   **Game Feel & "Juice":** Includes 40ms "hit-stop" freezes on heavy impacts, dynamic screen shake, combo multipliers, and velocity-based ghost trails for the ball.
-*   **Advanced Paddle Mechanics:** 
-    *   *Magnetic Catch:* Traps and holds the ball on impact, allowing precise angled re-launches.
-    *   *Laser Cannons:* Automatically fires dual projectiles upward to clear out bricks and damage bosses.
-*   **Boss Encounters:** Every 5th level summons a heavily armored Boss entity that strafes the screen and drops hazards.
-*   **Procedural Audio:** Sound effects are synthesized at runtime using the Web Audio API (oscillators and gain nodes)—no external audio files required.
-*   **Zero-Allocation Particles:** Object-pooled particle system ensures no garbage collection spikes during dense visual effects.
-*   **Power-up System:** Timed mechanics including Wide Paddle, Multi-ball, Slow Ball, Extra Life, Magnetic Catch, and Laser Cannons.
-*   **Responsive Rendering:** Resolution-independent scaling that perfectly maps an 800x600 logical grid to high-DPI (Retina) displays.
-*   **Cross-Platform Targets:** Runs natively in the browser via Vite, or as a standalone desktop application via Electron.
+This project elevates the traditional brick-breaking formula with an escalating 15-level campaign, intense boss encounters, and a physics-driven combo system. Packaged as a native Windows desktop application via `electron-builder`, it features a locked 800x600 arcade-style resolution, custom iconography, and persistent state saving for a seamless standalone experience.
+
+## Key Features
+
+* **15-Level Campaign & Boss Fights:** Progressive difficulty scaling, culminating in challenging Tier-based boss encounters every 5 levels.
+* **Dynamic Visuals:** A continuous parallax starfield with background colors that shift and intensify as the player advances through the galaxy.
+* **Physics & Combo System:** Angle-based ball deflection, hit-stop mechanics on impact, and score multipliers for consecutive brick destructions.
+* **Power-Up Arsenal:** 
+  * 🟦 **Wide:** Expands paddle width.
+  * 🟩 **Multi:** Spawns additional active balls.
+  * 🟪 **Slow:** Temporarily reduces ball velocity.
+  * 🟥 **Laser:** Equips the paddle with dual-firing lasers to melt through bricks and bosses.
+  * 🟨 **Magnetic:** Catches and holds the ball on the paddle for tactical relaunching.
+  * 💗 **Extra Life:** Grants a 1-Up.
+* **Persistent Progress:** Automatic save states via `localStorage` on level transitions and player death. The save data cleanly wipes upon a Game Over or campaign victory.
+* **Native Windows Installer:** Fully packaged `.exe` installer generated via NSIS, completely decoupled from the browser environment.
 
 ## Tech Stack
 
-*   **Core:** TypeScript (Strict Mode), HTML5 Canvas 2D API
-*   **Build Tooling:** Vite, ESBuild
-*   **Desktop Wrapper:** Electron, Electron-Builder (Targeting Windows `.exe` / NSIS installer)
-*   **Environment:** Node 20+
-
-## Getting Started
-
-### Prerequisites
-Ensure you have [Node.js](https://nodejs.org/) (v20 or higher) installed.
-
-### Installation
-Clone the repository and install dependencies:
-```bash
-npm install
-```
-
-### Available Scripts
-
-**Web Development**
-Starts the Vite development server with Hot Module Replacement (HMR).
-```bash
-npm run dev
-```
-
-**Desktop Development (Electron)**
-Compiles the TypeScript source and launches the standalone Electron window.
-```bash
-npm run app:dev
-```
-
-**Desktop Production Build**
-Packages the game into a deployable Windows setup executable (`.exe`). The output is saved to the `/release` directory.
-```bash
-npm run app:build
-```
+* **Core Engine:** TypeScript, HTML5 Canvas API (No external game engines)
+* **Build Tooling:** Vite
+* **Desktop Environment:** Electron, electron-builder
 
 ## Controls
 
-*   **Mouse / A & D / Left & Right Arrows:** Move Paddle
-*   **Space / Click:** Launch Ball / Release Magnet / Pause Game
-*   **Esc:** Pause Game
-*   **M:** Toggle Mute
-*   **R:** Restart Game (from Game Over screen)
+* **A / D** or **Left / Right Arrows:** Move Paddle
+* **Mouse:** Move Paddle (Alternative)
+* **Space / Left Click:** Launch Ball / Start Game / Next Level
+* **Escape:** Pause Game
+* **M:** Toggle Audio Mute
+
+## Installation & Development
+
+To run this project locally, modify the source code, or compile your own Windows installer, you will need Node.js installed.
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/breakout-game.git
+   cd breakout-game
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Run Web Version (Vite):**
+   ```bash
+   npm run dev
+   ```
+
+4. **Run Desktop App (Electron):**
+   ```bash
+   npm run app:dev
+   ```
+
+5. **Compile Windows Installer (.exe):**
+   ```bash
+   npm run app:build
+   ```
+   *The compiled `Breakout Setup 1.0.0.exe` installer will be generated inside the `/release` directory.*
