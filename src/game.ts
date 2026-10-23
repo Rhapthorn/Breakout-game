@@ -58,7 +58,7 @@ export class Game {
         const isBossLevel = (levelIndex + 1) % 5 === 0;
 
         if (isBossLevel) {
-            this.boss = new Boss();
+            this.boss = new Boss(levelIndex);
         } else {
             const layout = LEVELS[levelIndex % LEVELS.length];
             const bw = (CONFIG.GAME_WIDTH - (CONFIG.BRICK_COLS + 1) * CONFIG.BRICK_SPACING) / CONFIG.BRICK_COLS;
@@ -93,6 +93,8 @@ export class Game {
     restart() {
         this.lives = 3;
         this.score = 0;
+        // Keep this at 4 for testing the Level 5 boss instantly,
+        // or set to 0 to play normally.
         this.currentLevel = 0;
         this.loadLevel(this.currentLevel);
     }
@@ -143,18 +145,18 @@ export class Game {
             this.activePowerups.set(type, time - dt * 1000);
             if (this.activePowerups.get(type)! <= 0) {
                 this.activePowerups.delete(type);
-                this.removePowerupEffect(type);
+                this.removePowerEffect(type);
             }
         }
 
         this.paddle.update(dt);
         this.particles.update(dt);
 
-        // Boss Update & Hazard Spawning
+        // Boss Update & Scaled Hazard Spawning
         if (this.boss?.active) {
             this.boss.update(dt);
             if (this.boss.hazardTimer <= 0) {
-                this.boss.hazardTimer = 1.0 + Math.random() * 1.5;
+                this.boss.resetHazardTimer();
                 this.hazards.push({
                     x: this.boss.x + this.boss.w / 2 - CONFIG.HAZARD_SIZE / 2,
                     y: this.boss.y + this.boss.h,
@@ -165,7 +167,6 @@ export class Game {
             }
         }
 
-        // Hazard Update & Paddle Collision
         for (let i = this.hazards.length - 1; i >= 0; i--) {
             const h = this.hazards[i];
             h.y += CONFIG.HAZARD_SPEED * dt;
@@ -182,7 +183,7 @@ export class Game {
             p.update(dt);
             if (p.active && this.rectIntersect(p, this.paddle)) {
                 p.active = false;
-                this.applyPowerup(p.type);
+                this.applyPower(p.type);
                 AudioSys.playTone(600, 'sine', 0.2);
             }
         }
@@ -369,7 +370,7 @@ export class Game {
     }
 
     checkBrickCollision(ball: Ball, isX: boolean) {
-        if (this.boss?.active) return; // Bricks and Boss don't spawn together
+        if (this.boss?.active) return;
 
         const br = {x: ball.x - ball.r, y: ball.y - ball.r, w: ball.r * 2, h: ball.r * 2};
 
@@ -424,12 +425,12 @@ export class Game {
             this.combo++;
             this.score += 50 * this.combo;
             this.particles.emit(ball.x, ball.y, CONFIG.COLORS.BOSS, 15);
-            this.hitStopTimer = 0.06; // Heavier hit-stop for boss
+            this.hitStopTimer = 0.06;
             AudioSys.playTone(150 + this.combo * 10, 'sawtooth', 0.15);
         }
     }
 
-    applyPowerup(type: PowerupType) {
+    applyPower(type: PowerupType) {
         this.activePowerups.set(type, CONFIG.POWERUP_DURATION);
         switch (type) {
             case PowerupType.Wide:
@@ -447,6 +448,7 @@ export class Game {
                 }
                 break;
             case PowerupType.Slow:
+                // Fixed: speedMult -> speedMulti
                 this.balls.forEach(b => b.speedMulti = 0.6);
                 break;
             case PowerupType.ExtraLife:
@@ -459,12 +461,13 @@ export class Game {
         }
     }
 
-    removePowerupEffect(type: PowerupType) {
+    removePowerEffect(type: PowerupType) {
         switch (type) {
             case PowerupType.Wide:
                 this.paddle.setWidthMultiplier(1.0);
                 break;
             case PowerupType.Slow:
+                // Fixed: speedMult -> speedMulti
                 this.balls.forEach(b => b.speedMulti = 1.0);
                 break;
             case PowerupType.Magnetic:
