@@ -4,7 +4,8 @@ export enum GameState {
     Playing,
     Paused,
     LevelComplete,
-    GameOver
+    GameOver,
+    GameCompleted // NEW: The ultimate victory state
 }
 
 export enum PowerupType {

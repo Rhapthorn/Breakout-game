@@ -3,6 +3,7 @@ export const CONFIG = {
     GAME_WIDTH: 800,
     GAME_HEIGHT: 600,
     TICK_RATE: 1000 / 60,
+    MAX_LEVELS: 15, // The game now has a definitive end
     BALL_RADIUS: 6,
     BALL_BASE_SPEED: 400,
     BALL_MAX_SPEED: 800,

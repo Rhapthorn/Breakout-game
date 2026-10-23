@@ -13,6 +13,13 @@ import {Brick} from './entities/brick';
 import {Powerup} from './entities/powerup';
 import {Boss} from './entities/boss';
 
+// Helper interface for our dynamic background
+interface Star {
+    x: number;
+    y: number;
+    s: number; // speed/size
+}
+
 export class Game {
     state: GameState = GameState.Menu;
     renderer: Renderer;
@@ -25,6 +32,7 @@ export class Game {
     lasers: Rect[] = [];
     hazards: Rect[] = [];
     boss: Boss | null = null;
+    stars: Star[] = [];
 
     currentLevel = 0;
     lives = 3;
@@ -42,6 +50,15 @@ export class Game {
         this.paddle = new Paddle();
         this.highScore = Storage.getHighScore();
         this.addBall();
+
+        // Generate 100 background stars
+        for (let i = 0; i < 100; i++) {
+            this.stars.push({
+                x: Math.random() * CONFIG.GAME_WIDTH,
+                y: Math.random() * CONFIG.GAME_HEIGHT,
+                s: Math.random() * 2 + 0.5
+            });
+        }
     }
 
     addBall(): Ball {
@@ -51,6 +68,16 @@ export class Game {
     }
 
     loadLevel(levelIndex: number) {
+        if (levelIndex >= CONFIG.MAX_LEVELS) {
+            this.state = GameState.GameCompleted;
+            Storage.clearProgress(); // Wipe save, you beat the game!
+            if (this.score > this.highScore) {
+                this.highScore = this.score;
+                Storage.setHighScore(this.score);
+            }
+            return;
+        }
+
         this.bricks = [];
         this.boss = null;
         this.hazards = [];
@@ -89,14 +116,13 @@ export class Game {
         this.hitStopTimer = 0;
         this.state = GameState.Playing;
 
-        // Save progress at the start of every new level
         Storage.saveProgress(this.currentLevel, this.score, this.lives);
     }
 
     restart() {
         this.lives = 3;
         this.score = 0;
-        this.currentLevel = 0;
+        this.currentLevel = 14;
         Storage.clearProgress();
         this.loadLevel(this.currentLevel);
     }
@@ -120,6 +146,7 @@ export class Game {
                 }
                 break;
             case GameState.GameOver:
+            case GameState.GameCompleted: // Both states return to the start on Space
                 if (Input.consume('Space') || Input.consume('Enter')) {
                     AudioSys.init();
                     this.restart();
@@ -148,6 +175,16 @@ export class Game {
     update(dt: number) {
         this.handleInput();
         Input.resetMouseDelta();
+
+        // Parallax starfield updates constantly, even when paused or in menus!
+        const starSpeed = this.state === GameState.Playing ? 25 : 10;
+        for (const star of this.stars) {
+            star.y += star.s * starSpeed * dt;
+            if (star.y > CONFIG.GAME_HEIGHT) {
+                star.y = 0;
+                star.x = Math.random() * CONFIG.GAME_WIDTH;
+            }
+        }
 
         if (this.state !== GameState.Playing) return;
 
@@ -313,7 +350,7 @@ export class Game {
 
         if (this.lives <= 0) {
             this.state = GameState.GameOver;
-            Storage.clearProgress(); // Wipe save if you completely die
+            Storage.clearProgress();
 
             if (this.score > this.highScore) {
                 this.highScore = this.score;
@@ -324,7 +361,6 @@ export class Game {
             this.addBall().reset();
             this.paddle.reset();
             this.combo = 0;
-            // Save the lost life state so they can't exploit closing the app
             Storage.saveProgress(this.currentLevel, this.score, this.lives);
         }
     }
@@ -495,6 +531,15 @@ export class Game {
     render() {
         this.renderer.beginFrame(CONFIG.TICK_RATE / 1000);
 
+        // Draw Dynamic Background First
+        const bgIntensity = Math.min(60, this.currentLevel * 4); // Shifts from pitch black to deep purple/blue
+        this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, `rgb(${bgIntensity / 2}, 10, ${bgIntensity})`);
+
+        // Draw Starfield Parallax
+        for (const star of this.stars) {
+            this.renderer.drawCircle(star.x, star.y, star.s, 'rgba(255, 255, 255, 0.4)');
+        }
+
         for (const brick of this.bricks) {
             if (brick.active) {
                 this.renderer.drawRect(brick.x, brick.y, brick.w, brick.h, brick.getColor(), 2);
@@ -550,7 +595,8 @@ export class Game {
 
         this.renderer.drawText(`SCORE: ${this.score}`, 10, 20, 16);
         this.renderer.drawText(`HI: ${this.highScore}`, 10, 40, 14);
-        this.renderer.drawText(`LEVEL: ${this.currentLevel + 1}`, 10, 60, 12);
+        const displayLevel = Math.min(this.currentLevel + 1, CONFIG.MAX_LEVELS);
+        this.renderer.drawText(`LEVEL: ${displayLevel} / ${CONFIG.MAX_LEVELS}`, 10, 60, 12);
         this.renderer.drawText(`LIVES: ${this.lives}`, CONFIG.GAME_WIDTH - 80, 20, 16);
 
         if (this.combo > 1) {
@@ -561,9 +607,10 @@ export class Game {
             this.renderer.drawText(`Muted`, CONFIG.GAME_WIDTH - 50, 40, 12);
         }
 
+        // --- OVERLAYS ---
         if (this.state === GameState.Menu) {
             const hasSave = !!Storage.loadProgress();
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.5)');
             this.renderer.drawText('BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 48, 'center');
             this.renderer.drawText(hasSave ? 'Press Space to Resume' : 'Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 24, 'center');
         } else if (this.state === GameState.Paused) {
@@ -577,6 +624,11 @@ export class Game {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
             this.renderer.drawText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 36, 'center');
             this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
+        } else if (this.state === GameState.GameCompleted) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.8)');
+            this.renderer.drawText('YOU SAVED THE GALAXY!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 42, 'center');
+            this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 10, 28, 'center');
+            this.renderer.drawText('Press Space to Play Again', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 20, 'center');
         }
 
         this.renderer.endFrame();
