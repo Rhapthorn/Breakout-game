@@ -41,7 +41,7 @@ export class Renderer {
             this.ctx.translate(dx, dy);
         }
 
-        this.ctx.fillStyle = '#1a1a2e';
+        this.ctx.fillStyle = '#080812'; // Deepened base background for better contrast
         this.ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
     }
 
@@ -60,6 +60,18 @@ export class Renderer {
         }
     }
 
+    drawStrokeRect(x: number, y: number, w: number, h: number, color: string, lineWidth: number = 2, radius: number = 0) {
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = lineWidth;
+        if (radius > 0) {
+            this.ctx.beginPath();
+            this.ctx.roundRect(x, y, w, h, radius);
+            this.ctx.stroke();
+        } else {
+            this.ctx.strokeRect(x, y, w, h);
+        }
+    }
+
     drawCircle(x: number, y: number, r: number, color: string, alpha: number = 1) {
         this.ctx.globalAlpha = alpha;
         this.ctx.fillStyle = color;
@@ -69,11 +81,23 @@ export class Renderer {
         this.ctx.globalAlpha = 1.0;
     }
 
-    drawText(text: string, x: number, y: number, size: number, align: CanvasTextAlign = 'left') {
-        this.ctx.fillStyle = CONFIG.COLORS.TEXT;
+    drawText(text: string, x: number, y: number, size: number, align: CanvasTextAlign = 'left', color: string = CONFIG.COLORS.TEXT) {
+        this.ctx.fillStyle = color;
         this.ctx.font = `bold ${size}px sans-serif`;
         this.ctx.textAlign = align;
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(text, x, y);
+    }
+
+    drawGlowText(text: string, x: number, y: number, size: number, align: CanvasTextAlign = 'left', color: string, glowColor: string, blur: number) {
+        this.ctx.save();
+        this.ctx.fillStyle = color;
+        this.ctx.font = `900 ${size}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+        this.ctx.textAlign = align;
+        this.ctx.textBaseline = 'middle';
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = blur;
+        this.ctx.fillText(text, x, y);
+        this.ctx.restore();
     }
 }

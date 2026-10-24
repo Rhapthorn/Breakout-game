@@ -1,7 +1,7 @@
 {
-  "name": "breakout",
+  "name": "galactic_breakout",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.5.0",
   "type": "module",
   "main": "main.cjs",
   "author": "Game Engineer",
@@ -16,12 +16,14 @@
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9",
+    "prisma": "^7.10.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   },
   "build": {
     "appId": "com.breakout.game",
-    "productName": "Breakout",
+    "productName": "Galactic Breakout",
     "directories": {
       "output": "release"
     },
@@ -40,5 +42,10 @@
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico"
     }
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "better-sqlite3": "^13.0.3"
   }
 }

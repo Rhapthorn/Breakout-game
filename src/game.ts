@@ -12,12 +12,16 @@ import {Ball} from './entities/ball';
 import {Brick} from './entities/brick';
 import {Powerup} from './entities/powerup';
 import {Boss} from './entities/boss';
+import {StorageHelper} from './storageHelper';
 
-// Helper interface for our dynamic background
 interface Star {
     x: number;
     y: number;
-    s: number; // speed/size
+    s: number;
+}
+
+interface Laser extends Rect {
+    vx?: number;
 }
 
 export class Game {
@@ -29,7 +33,7 @@ export class Game {
     balls: Ball[] = [];
     bricks: Brick[] = [];
     powerups: Powerup[] = [];
-    lasers: Rect[] = [];
+    lasers: Laser[] = [];
     hazards: Rect[] = [];
     boss: Boss | null = null;
     stars: Star[] = [];
@@ -52,7 +56,6 @@ export class Game {
         Storage.clearProgress();
         this.addBall();
 
-        // Generate 100 background stars
         for (let i = 0; i < 100; i++) {
             this.stars.push({
                 x: Math.random() * CONFIG.GAME_WIDTH,
@@ -71,7 +74,7 @@ export class Game {
     loadLevel(levelIndex: number) {
         if (levelIndex >= CONFIG.MAX_LEVELS) {
             this.state = GameState.GameCompleted;
-            Storage.clearProgress(); // Wipe save, you beat the game!
+            Storage.clearProgress();
             if (this.score > this.highScore) {
                 this.highScore = this.score;
                 Storage.setHighScore(this.score);
@@ -146,7 +149,7 @@ export class Game {
                 }
                 break;
             case GameState.GameOver:
-            case GameState.GameCompleted: // Both states return to the start on Space
+            case GameState.GameCompleted:
                 if (Input.consume('Space') || Input.consume('Enter')) {
                     AudioSys.init();
                     this.restart();
@@ -176,10 +179,10 @@ export class Game {
         this.handleInput();
         Input.resetMouseDelta();
 
-        // Parallax starfield updates constantly, even when paused or in menus!
         const starSpeed = this.state === GameState.Playing ? 25 : 10;
         for (const star of this.stars) {
             star.y += star.s * starSpeed * dt;
+
             if (star.y > CONFIG.GAME_HEIGHT) {
                 star.y = 0;
                 star.x = Math.random() * CONFIG.GAME_WIDTH;
@@ -244,18 +247,42 @@ export class Game {
             this.laserTimer -= dt;
             if (this.laserTimer <= 0) {
                 this.laserTimer = CONFIG.LASER_COOLDOWN;
+
+                const hasMulti = this.activePowers.has(PowerupType.Multi);
+                const spreadSpeed = 150;
+
                 this.lasers.push({
                     x: this.paddle.x + 8,
                     y: this.paddle.y,
                     w: CONFIG.LASER_WIDTH,
-                    h: CONFIG.LASER_HEIGHT
+                    h: CONFIG.LASER_HEIGHT,
+                    vx: 0
                 });
                 this.lasers.push({
                     x: this.paddle.x + this.paddle.w - 8 - CONFIG.LASER_WIDTH,
                     y: this.paddle.y,
                     w: CONFIG.LASER_WIDTH,
-                    h: CONFIG.LASER_HEIGHT
+                    h: CONFIG.LASER_HEIGHT,
+                    vx: 0
                 });
+
+                if (hasMulti) {
+                    this.lasers.push({
+                        x: this.paddle.x - 4,
+                        y: this.paddle.y,
+                        w: CONFIG.LASER_WIDTH,
+                        h: CONFIG.LASER_HEIGHT,
+                        vx: -spreadSpeed
+                    });
+                    this.lasers.push({
+                        x: this.paddle.x + this.paddle.w + 4,
+                        y: this.paddle.y,
+                        w: CONFIG.LASER_WIDTH,
+                        h: CONFIG.LASER_HEIGHT,
+                        vx: spreadSpeed
+                    });
+                }
+
                 AudioSys.playTone(700, 'sawtooth', 0.05);
             }
         }
@@ -263,6 +290,8 @@ export class Game {
         for (let i = this.lasers.length - 1; i >= 0; i--) {
             const l = this.lasers[i];
             l.y -= CONFIG.LASER_SPEED * dt;
+            if (l.vx) l.x += l.vx * dt;
+
             let hit = false;
 
             if (l.y + l.h < 0) {
@@ -352,6 +381,8 @@ export class Game {
             this.state = GameState.GameOver;
             Storage.clearProgress();
 
+            StorageHelper.saveScore(this.score, this.currentLevel + 1);
+
             if (this.score > this.highScore) {
                 this.highScore = this.score;
                 Storage.setHighScore(this.score);
@@ -402,10 +433,15 @@ export class Game {
             ball.y = this.paddle.y - ball.r;
 
             if (this.activePowers.has(PowerupType.Magnetic)) {
-                ball.stuckToPaddle = true;
-                ball.stuckOffset = ball.x - (this.paddle.x + this.paddle.w / 2);
-                AudioSys.playTone(500, 'sine', 0.1);
-                return;
+                const maxCatch = this.paddle.isWide ? 3 : 1;
+                const currentCaught = this.balls.filter(b => b.stuckToPaddle).length;
+
+                if (currentCaught < maxCatch) {
+                    ball.stuckToPaddle = true;
+                    ball.stuckOffset = ball.x - (this.paddle.x + this.paddle.w / 2);
+                    AudioSys.playTone(500, 'sine', 0.1);
+                    return;
+                }
             }
 
             const hitPoint = ball.x - (this.paddle.x + this.paddle.w / 2);
@@ -531,11 +567,9 @@ export class Game {
     render() {
         this.renderer.beginFrame(CONFIG.TICK_RATE / 1000);
 
-        // Draw Dynamic Background First
-        const bgIntensity = Math.min(60, this.currentLevel * 4); // Shifts from pitch black to deep purple/blue
+        const bgIntensity = Math.min(60, this.currentLevel * 4);
         this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, `rgb(${bgIntensity / 2}, 10, ${bgIntensity})`);
 
-        // Draw Starfield Parallax
         for (const star of this.stars) {
             this.renderer.drawCircle(star.x, star.y, star.s, 'rgba(255, 255, 255, 0.4)');
         }
@@ -550,21 +584,24 @@ export class Game {
             const bossColor = this.boss.isInvulnerable ? '#ffffff' : CONFIG.COLORS.BOSS;
             this.renderer.drawRect(this.boss.x, this.boss.y, this.boss.w, this.boss.h, bossColor, 8);
 
-            if (this.boss) {
-                // Render Orbital Strikes (Red vertical warning columns / laser beams)
-                this.boss.orbitalStrikes.forEach(strike => {
-                    strike.draw(this.renderer.ctx, CONFIG.GAME_HEIGHT);
-                });
+            this.boss.orbitalStrikes.forEach(strike => {
+                strike.draw(this.renderer.ctx, CONFIG.GAME_HEIGHT);
+            });
 
-                // Render Gravity Orbs (Pulsing purple anomalies)
-                this.boss.gravityOrbs.forEach(orb => {
-                    orb.draw(this.renderer.ctx);
-                });
-            }
+            this.boss.gravityOrbs.forEach(orb => {
+                orb.draw(this.renderer.ctx);
+            });
 
             const hpPercent = this.boss.hp / this.boss.maxHp;
-            this.renderer.drawRect(this.boss.x, this.boss.y - 12, this.boss.w, 6, 'rgba(255,0,0,0.3)');
-            this.renderer.drawRect(this.boss.x, this.boss.y - 12, this.boss.w * hpPercent, 6, '#00ff00');
+            const barW = this.boss.w * 1.5;
+            const barH = 8;
+            const barX = this.boss.x + (this.boss.w / 2) - (barW / 2);
+            const barY = this.boss.y - 20;
+
+            this.renderer.drawRect(barX, barY, barW, barH, 'rgba(0,0,0,0.8)', 4);
+            const hpColor = hpPercent > 0.5 ? '#00ffcc' : hpPercent > 0.2 ? '#ffaa00' : '#ff3333';
+            this.renderer.drawRect(barX, barY, barW * hpPercent, barH, hpColor, 4);
+            this.renderer.drawStrokeRect(barX, barY, barW, barH, '#ffffff', 1, 4);
         }
 
         for (const h of this.hazards) {
@@ -577,7 +614,7 @@ export class Game {
 
         for (const p of this.powerups) {
             this.renderer.drawRect(p.x, p.y, p.w, p.h, p.getColor(), 4);
-            this.renderer.drawText(p.getLetter(), p.x + p.w / 2, p.y + p.h / 2, 12, 'center');
+            this.renderer.drawText(p.getLetter(), p.x + p.w / 2, p.y + p.h / 2, 12, 'center', '#ffffff');
         }
 
         this.particles.draw(this.renderer);
@@ -605,44 +642,54 @@ export class Game {
             }
         }
 
-        this.renderer.drawText(`SCORE: ${this.score}`, 10, 20, 16);
-        this.renderer.drawText(`HI: ${this.highScore}`, 10, 40, 14);
+        this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, 40, 'rgba(10, 15, 30, 0.9)');
+        this.renderer.drawStrokeRect(0, 0, CONFIG.GAME_WIDTH, 40, 'rgba(0, 229, 255, 0.3)', 2);
+
+        this.renderer.drawText(`SCORE: ${this.score}`, 20, 20, 16, 'left', '#00e5ff');
+        this.renderer.drawText(`HI: ${this.highScore}`, 150, 20, 14, 'left', '#aaaaaa');
         const displayLevel = Math.min(this.currentLevel + 1, CONFIG.MAX_LEVELS);
-        this.renderer.drawText(`LEVEL: ${displayLevel} / ${CONFIG.MAX_LEVELS}`, 10, 60, 12);
-        this.renderer.drawText(`LIVES: ${this.lives}`, CONFIG.GAME_WIDTH - 80, 20, 16);
+        this.renderer.drawText(`LEVEL: ${displayLevel} / ${CONFIG.MAX_LEVELS}`, CONFIG.GAME_WIDTH / 2, 20, 16, 'center', '#ffffff');
+        this.renderer.drawText(`LIVES: ${this.lives}`, CONFIG.GAME_WIDTH - 20, 20, 16, 'right', '#ff3366');
 
         if (this.combo > 1) {
-            this.renderer.drawText(`${this.combo}x COMBO`, CONFIG.GAME_WIDTH / 2, 20, 16, 'center');
+            this.renderer.drawGlowText(`${this.combo}x COMBO`, CONFIG.GAME_WIDTH / 2, 60, 20, 'center', '#ffcc00', '#ffaa00', 10);
         }
 
         if (AudioSys.getMuted()) {
-            this.renderer.drawText(`Muted`, CONFIG.GAME_WIDTH - 50, 40, 12);
+            this.renderer.drawText(`Muted`, CONFIG.GAME_WIDTH - 50, 60, 12, 'right', '#ff5555');
         }
 
-        // --- OVERLAYS ---
         if (this.state === GameState.Menu) {
             const hasSave = !!Storage.loadProgress();
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.5)');
-            this.renderer.drawText('BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 48, 'center');
-            this.renderer.drawText(hasSave ? 'Press Space to Resume' : 'Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 24, 'center');
-        } else if (this.state === GameState.Paused) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.5)');
-            this.renderer.drawText('PAUSED', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 32, 'center');
-        } else if (this.state === GameState.GameOver) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
-            this.renderer.drawText('GAME OVER', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 48, 'center');
-            this.renderer.drawText('Press Space to Restart', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
-        } else if (this.state === GameState.LevelComplete) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.85)');
 
-            // If this was the final level (Level 15 / index 14), show victory completion text instead!
+            this.renderer.drawGlowText('GALACTIC BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 60, 54, 'center', '#ffffff', '#00e5ff', 20);
+            this.renderer.drawText('v2.5.0', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 10, 16, 'center', '#00e5ff');
+
+            const pulseAlpha = Math.abs(Math.sin(Date.now() / 300));
+            this.renderer.ctx.globalAlpha = 0.5 + pulseAlpha * 0.5;
+            this.renderer.drawText(hasSave ? 'Press Space to Resume' : 'Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 50, 24, 'center', '#ffcc00');
+            this.renderer.ctx.globalAlpha = 1.0;
+
+        } else if (this.state === GameState.Paused) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.6)');
+            this.renderer.drawGlowText('PAUSED', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 42, 'center', '#ffffff', '#00e5ff', 10);
+
+        } else if (this.state === GameState.GameOver) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(20, 0, 0, 0.8)');
+            this.renderer.drawGlowText('GAME OVER', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 54, 'center', '#ff3333', '#ff0000', 20);
+            this.renderer.drawText('Press Space to Restart', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 40, 24, 'center', '#ffffff');
+
+        } else if (this.state === GameState.LevelComplete) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0, 10, 20, 0.8)');
+
             if (this.currentLevel >= CONFIG.MAX_LEVELS - 1) {
-                this.renderer.drawText('YOU SAVED THE GALAXY!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 42, 'center');
-                this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 10, 28, 'center');
-                this.renderer.drawText('Press Space to Play Again', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 20, 'center');
+                this.renderer.drawGlowText('YOU SAVED THE GALAXY!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 40, 48, 'center', '#00ffcc', '#00aaaa', 20);
+                this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 28, 'center', '#ffffff');
+                this.renderer.drawText('Press Space to Play Again', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 70, 20, 'center', '#aaaaaa');
             } else {
-                this.renderer.drawText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 36, 'center');
-                this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 24, 'center');
+                this.renderer.drawGlowText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 42, 'center', '#ffcc00', '#aaaa00', 15);
+                this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 40, 24, 'center', '#ffffff');
             }
         }
 

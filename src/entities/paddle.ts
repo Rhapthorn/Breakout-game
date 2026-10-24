@@ -1,4 +1,3 @@
-// src/entities/paddle.ts
 import {CONFIG} from '../config';
 import {Input} from '../input';
 import {Rect} from '../types';
@@ -28,6 +27,11 @@ export class Paddle implements Rect {
 
     setWidthMultiplier(mult: number) {
         this.targetWidth = CONFIG.PADDLE_WIDTH * mult;
+    }
+
+    // Synergy Helper
+    get isWide(): boolean {
+        return this.targetWidth > CONFIG.PADDLE_WIDTH;
     }
 
     update(dt: number) {

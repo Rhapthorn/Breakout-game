@@ -35,3 +35,9 @@ hs_err_pid*
 .Trashes
 ehthumbs.db
 Thumbs.db
+/src/generated/prisma
+
+# .gitignore
+.env
+prisma/dev.db
+prisma/dev.db-journal
