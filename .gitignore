@@ -41,3 +41,8 @@ Thumbs.db
 .env
 prisma/dev.db
 prisma/dev.db-journal
+
+# AI assistant and tool skill directories
+.claude/
+.agents/
+.windsurf/
