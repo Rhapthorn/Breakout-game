@@ -3,9 +3,11 @@ export enum GameState {
     Menu,
     Playing,
     Paused,
-    LevelComplete,
     GameOver,
-    GameCompleted // NEW: The ultimate victory state
+    GameCompleted,
+    LevelComplete,
+    Leaderboard, // <-- Add this
+    Options      // <-- Add this
 }
 
 export enum PowerupType {
@@ -23,3 +25,4 @@ export interface Rect {
     w: number;
     h: number;
 }
+

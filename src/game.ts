@@ -46,6 +46,8 @@ export class Game {
     hitStopTimer = 0;
     laserTimer = 0;
 
+    menuSelection = 0; // 0: Start, 1: Leaderboard, 2: Options, 3: Exit
+
     activePowers: Map<PowerupType, number> = new Map();
 
     constructor(canvas: HTMLCanvasElement) {
@@ -135,17 +137,42 @@ export class Game {
 
         switch (this.state) {
             case GameState.Menu:
+                if (Input.consume('ArrowUp') || Input.consume('KeyW')) {
+                    this.menuSelection = (this.menuSelection - 1 + 4) % 4;
+                    AudioSys.playTone(400, 'sine', 0.05);
+                }
+                if (Input.consume('ArrowDown') || Input.consume('KeyS')) {
+                    this.menuSelection = (this.menuSelection + 1) % 4;
+                    AudioSys.playTone(400, 'sine', 0.05);
+                }
                 if (Input.consume('Space') || Input.consume('Enter')) {
                     AudioSys.init();
-                    const saved = Storage.loadProgress();
-                    if (saved) {
-                        this.lives = saved.lives;
-                        this.score = saved.score;
-                        this.currentLevel = saved.level;
-                        this.loadLevel(this.currentLevel);
-                    } else {
-                        this.restart();
+                    if (this.menuSelection === 0) {
+                        // Start Campaign
+                        const saved = Storage.loadProgress();
+                        if (saved) {
+                            this.lives = saved.lives;
+                            this.score = saved.score;
+                            this.currentLevel = saved.level;
+                            this.loadLevel(this.currentLevel);
+                        } else {
+                            this.restart();
+                        }
+                    } else if (this.menuSelection === 1) {
+                        this.state = GameState.Leaderboard;
+                    } else if (this.menuSelection === 2) {
+                        this.state = GameState.Options;
+                    } else if (this.menuSelection === 3) {
+                        window.close();
                     }
+                }
+                break;
+
+// Add handlers to return from Leaderboard/Options with Escape or Space
+            case GameState.Leaderboard:
+            case GameState.Options:
+                if (Input.consume('Escape') || Input.consume('Space') || Input.consume('Enter')) {
+                    this.state = GameState.Menu;
                 }
                 break;
             case GameState.GameOver:
@@ -153,6 +180,10 @@ export class Game {
                 if (Input.consume('Space') || Input.consume('Enter')) {
                     AudioSys.init();
                     this.restart();
+                }
+                if (Input.consume('KeyQ')) {
+                    this.state = GameState.Menu;
+                    this.menuSelection = 0;
                 }
                 break;
             case GameState.LevelComplete:
@@ -170,7 +201,14 @@ export class Game {
                 }
                 break;
             case GameState.Paused:
-                if (Input.consume('Escape') || Input.consume('Space')) this.state = GameState.Playing;
+                if (Input.consume('Escape') || Input.consume('Space')) {
+                    this.state = GameState.Playing;
+                }
+                // Press 'KeyQ' while paused to quit back to the main menu
+                if (Input.consume('KeyQ')) {
+                    this.state = GameState.Menu;
+                    this.menuSelection = 0; // Reset menu pointer to Start Campaign
+                }
                 break;
         }
     }
@@ -660,25 +698,57 @@ export class Game {
         }
 
         if (this.state === GameState.Menu) {
-            const hasSave = !!Storage.loadProgress();
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.85)');
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
 
-            this.renderer.drawGlowText('GALACTIC BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 60, 54, 'center', '#ffffff', '#00e5ff', 20);
-            this.renderer.drawText('v2.5.0', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 10, 16, 'center', '#00e5ff');
+            this.renderer.drawGlowText('GALACTIC BREAKOUT', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 120, 48, 'center', '#ffffff', '#00e5ff', 20);
+            this.renderer.drawText('v2.5.0', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 70, 14, 'center', '#00e5ff');
 
-            const pulseAlpha = Math.abs(Math.sin(Date.now() / 300));
-            this.renderer.ctx.globalAlpha = 0.5 + pulseAlpha * 0.5;
-            this.renderer.drawText(hasSave ? 'Press Space to Resume' : 'Press Space to Start', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 50, 24, 'center', '#ffcc00');
-            this.renderer.ctx.globalAlpha = 1.0;
+            const options = ['START CAMPAIGN', 'LEADERBOARD', 'OPTIONS', 'EXIT'];
+
+            options.forEach((opt, index) => {
+                const isSelected = this.menuSelection === index;
+                const color = isSelected ? '#00ffcc' : '#aaaaaa';
+                const prefix = isSelected ? '> ' : '  ';
+                const suffix = isSelected ? ' <' : '';
+
+                this.renderer.drawText(
+                    `${prefix}${opt}${suffix}`,
+                    CONFIG.GAME_WIDTH / 2,
+                    CONFIG.GAME_HEIGHT / 2 + (index * 35),
+                    18,
+                    'center',
+                    color
+                );
+            });
+
+            this.renderer.drawText('Use W/S or Arrow Keys to Navigate, Enter to Select', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 180, 12, 'center', '#666666');
+        } else if (this.state === GameState.Leaderboard) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
+            this.renderer.drawGlowText('LEADERBOARD', CONFIG.GAME_WIDTH / 2, 80, 36, 'center', '#00e5ff', '#0088ff', 15);
+
+            const hi = Storage.getHighScore();
+            this.renderer.drawText(`TOP PILOT HIGH SCORE: ${hi}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 20, 'center', '#ffffff');
+            this.renderer.drawText('Press Space or Escape to Return', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 14, 'center', '#aaaaaa');
+
+
+        } else if (this.state === GameState.Options) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
+            this.renderer.drawGlowText('OPTIONS', CONFIG.GAME_WIDTH / 2, 80, 36, 'center', '#ff00ff', '#aa00aa', 15);
+
+            this.renderer.drawText('Press M to Toggle Mute (Current: ' + (AudioSys.getMuted() ? 'MUTED' : 'UNMUTED') + ')', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 18, 'center', '#ffffff');
+            this.renderer.drawText('Press Space or Escape to Return', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 14, 'center', '#aaaaaa');
 
         } else if (this.state === GameState.Paused) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.6)');
-            this.renderer.drawGlowText('PAUSED', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 42, 'center', '#ffffff', '#00e5ff', 10);
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
+            this.renderer.drawGlowText('PAUSED', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 30, 42, 'center', '#ffffff', '#00e5ff', 10);
+            this.renderer.drawText('Press Space or Escape to Resume', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20, 16, 'center', '#ffffff');
+            this.renderer.drawText('Press Q to Exit to Main Menu', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 55, 14, 'center', '#ff3366');
 
         } else if (this.state === GameState.GameOver) {
-            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(20, 0, 0, 0.8)');
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(10, 0, 0, 0.95)');
             this.renderer.drawGlowText('GAME OVER', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 54, 'center', '#ff3333', '#ff0000', 20);
-            this.renderer.drawText('Press Space to Restart', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 40, 24, 'center', '#ffffff');
+            this.renderer.drawText(`FINAL SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 30, 20, 'center', '#ffffff');
+            this.renderer.drawText('Press Space to Restart', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 70, 16, 'center', '#aaaaaa');
 
         } else if (this.state === GameState.LevelComplete) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0, 10, 20, 0.8)');
