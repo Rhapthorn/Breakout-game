@@ -14,6 +14,7 @@ import {Powerup} from './entities/powerup';
 import {Boss} from './entities/boss';
 import {StorageHelper} from './storageHelper';
 
+
 interface Star {
     x: number;
     y: number;
@@ -54,6 +55,7 @@ export class Game {
     combo = 0;
     hitStopTimer = 0;
     laserTimer = 0;
+
 
     menuSelection = 0; // 0: Start, 1: Leaderboard, 2: Options, 3: Exit
     floatingTexts: FloatingText[] = [];
