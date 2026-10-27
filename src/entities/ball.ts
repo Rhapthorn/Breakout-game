@@ -1,3 +1,4 @@
+// src/ball.ts
 import {CONFIG} from '../config';
 
 export interface Position {
