@@ -39,11 +39,13 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
+            partition: 'persist:galactic_breakout'
         }
     });
 
     mainWindow.setMenu(null);
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+
 }
 
 // --- IPC HANDLERS ---

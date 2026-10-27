@@ -86,6 +86,11 @@ export class Game {
     }
 
     loadLevel(levelIndex: number) {
+        this.currentLevel = levelIndex;
+
+
+        Storage.saveProgress(this.currentLevel, this.score, this.lives);
+
         if (levelIndex >= CONFIG.MAX_LEVELS) {
             this.state = GameState.GameCompleted;
             Storage.clearProgress();
@@ -171,12 +176,23 @@ export class Game {
                         this.score = saved.score;
                         this.currentLevel = saved.level;
                         this.loadLevel(this.currentLevel);
+                        this.state = GameState.Playing; // 🚀 Crucial: switch state to Playing
                     } else {
-                        this.restart();
+                        this.score = 0;
+                        this.lives = 3;
+                        this.currentLevel = 0;
+                        Storage.saveProgress(this.currentLevel, this.score, this.lives);
+                        this.loadLevel(this.currentLevel);
+                        this.state = GameState.Playing;
                     }
                 } else if (selectedOpt === 'START CAMPAIGN' || selectedOpt === 'START NEW CAMPAIGN') {
                     Storage.clearProgress();
-                    this.restart();
+                    this.score = 0;
+                    this.lives = 3;
+                    this.currentLevel = 0;
+                    Storage.saveProgress(this.currentLevel, this.score, this.lives);
+                    this.loadLevel(this.currentLevel);
+                    this.state = GameState.Playing; // 🚀 Crucial: switch state to Playing
                 } else if (selectedOpt === 'LEADERBOARD') {
                     this.state = GameState.Leaderboard;
                     this.isLoadingLeaderboard = true;
@@ -444,6 +460,7 @@ export class Game {
 
     loseLife() {
         this.lives--;
+        Storage.saveProgress(this.currentLevel, this.score, this.lives);
         this.lasers = [];
         this.hazards = [];
         this.activePowers.clear();
