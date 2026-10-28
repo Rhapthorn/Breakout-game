@@ -49,6 +49,8 @@ export class Game {
 
     public initials: string[] = ['A', 'A', 'A'];
     public currentInitialIndex: number = 0;
+    public soundEnabled: boolean = true;
+    public optionsSelection: number = 0;
 
     currentLevel = 0;
     lives = 3;
@@ -215,9 +217,31 @@ export class Game {
                     window.close();
                 }
             }
-        } else if (this.state === GameState.Leaderboard || this.state === GameState.Options) {
+        } else if (this.state === GameState.Leaderboard) {
             if (Input.consume('Escape') || Input.consume('Space') || Input.consume('Enter')) {
                 this.state = GameState.Menu;
+            }
+        } else if (this.state === GameState.Options) {
+            const optionsList = ['SOUND', 'BACK'];
+
+            if (Input.consume('ArrowUp') || Input.consume('KeyW')) {
+                this.optionsSelection = (this.optionsSelection - 1 + optionsList.length) % optionsList.length;
+                if (this.soundEnabled) AudioSys.playTone(400, 'sine', 0.05);
+            }
+            if (Input.consume('ArrowDown') || Input.consume('KeyS')) {
+                this.optionsSelection = (this.optionsSelection + 1) % optionsList.length;
+                if (this.soundEnabled) AudioSys.playTone(400, 'sine', 0.05);
+            }
+
+            if (Input.consume('Enter') || Input.consume('Space') || Input.consume('ArrowLeft') || Input.consume('ArrowRight')) {
+                if (this.optionsSelection === 0) {
+                    this.soundEnabled = !this.soundEnabled;
+                    AudioSys.toggleMute();
+                    if (this.soundEnabled) AudioSys.playTone(600, 'sine', 0.05);
+                } else if (this.optionsSelection === 1) {
+                    this.state = GameState.Menu;
+                    this.optionsSelection = 0;
+                }
             }
         } else if (this.state === GameState.Playing) {
             if (Input.consume('Escape')) {
@@ -901,10 +925,28 @@ export class Game {
             this.renderer.drawText('Press Space or Escape to Return', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 60, 14, 'center', '#aaaaaa');
         } else if (this.state === GameState.Options) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
-            this.renderer.drawGlowText('OPTIONS', CONFIG.GAME_WIDTH / 2, 80, 36, 'center', '#ff00ff', '#aa00aa', 15);
+            this.renderer.drawGlowText('OPTIONS', CONFIG.GAME_WIDTH / 2, 180, 36, 'center', '#ff00ff', '#aa00aa', 15);
 
-            this.renderer.drawText('Press M to Toggle Mute (Current: ' + (AudioSys.getMuted() ? 'MUTED' : 'UNMUTED') + ')', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 18, 'center', '#ffffff');
-            this.renderer.drawText('Press Space or Escape to Return', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 60, 14, 'center', '#aaaaaa');
+            const optionsList = [
+                `SOUND SFX: ${this.soundEnabled ? 'ON' : 'OFF'}`,
+                'BACK TO MENU'
+            ];
+
+            optionsList.forEach((opt, index) => {
+                const isSelected = index === this.optionsSelection;
+                const color = isSelected ? '#00ffcc' : '#ffffff';
+                const prefix = isSelected ? '> ' : '  ';
+                this.renderer.drawText(
+                    prefix + opt,
+                    CONFIG.GAME_WIDTH / 2,
+                    280 + (index * 60),
+                    20,
+                    'center',
+                    color
+                );
+            });
+
+            this.renderer.drawText('Use W/S or Arrow Keys to Navigate, Enter to Toggle', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 60, 14, 'center', '#aaaaaa');
 
         } else if (this.state === GameState.Paused) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,0.7)');
