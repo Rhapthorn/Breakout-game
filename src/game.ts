@@ -31,6 +31,7 @@ interface FloatingText {
     color: string;
     alpha: number;
     vy: number;
+    scale: number;
 }
 
 export class Game {
@@ -59,6 +60,7 @@ export class Game {
     combo = 0;
     hitStopTimer = 0;
     laserTimer = 0;
+    flashTimer = 0;
 
     menuSelection = 0; // 0: Start, 1: Leaderboard, 2: Options, 3: Exit
     floatingTexts: FloatingText[] = [];
@@ -244,6 +246,12 @@ export class Game {
                 }
             }
         } else if (this.state === GameState.Playing) {
+
+            // if (Input.consume('KeyN')) {
+            //     this.flashTimer = 0.3;
+            //     this.state = GameState.LevelComplete;
+            //     AudioSys.playTone(900, 'sine', 0.15);
+            // }
             if (Input.consume('Escape')) {
                 this.state = GameState.Paused;
             }
@@ -343,6 +351,10 @@ export class Game {
         this.handleInput();
         Input.resetMouseDelta();
 
+        if (this.flashTimer > 0) {
+            this.flashTimer -= dt;
+        }
+
         const starSpeed = this.state === GameState.Playing ? 25 : 10;
         for (const star of this.stars) {
             star.y += star.s * starSpeed * dt;
@@ -374,6 +386,7 @@ export class Game {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
             ft.y += ft.vy * dt;
+            ft.scale = Math.max(1.0, ft.scale - dt * 2);
 
             ft.alpha -= dt * 1.5;
             if (ft.alpha <= 0) {
@@ -539,6 +552,7 @@ export class Game {
         const bossAlive = this.boss?.active ?? false;
 
         if (!hasDestructible && !bossAlive) {
+            this.flashTimer = 0.3;
             this.state = GameState.LevelComplete;
         }
     }
@@ -659,20 +673,24 @@ export class Game {
 
                 if (brick.hit()) {
                     this.combo++;
-                    this.score += 10 * this.combo;
+                    const points = 10 * this.combo;
+                    this.score += points;
+
+                    const popupColor = this.combo > 5 ? '#ff00ff' : this.combo > 2 ? '#ffcc00' : '#00ffcc';
+
                     this.floatingTexts.push({
-                        text: `+${10 * this.combo}`,
+                        text: `+${points}`,
                         x: brick.x + brick.w / 2,
                         y: brick.y,
-                        color: '#00ffcc',
+                        color: popupColor,
                         alpha: 1.0,
-                        vy: -60
+                        vy: -70,
+                        scale: 1.5
                     });
+
                     this.particles.emit(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.getColor(), 10);
 
                     this.hitStopTimer = 0.04;
-
-                    // 🚀 ADD SCREEN SHAKE HERE
                     this.renderer.triggerShake(100);
 
                     if (!brick.isIndestructible && Math.random() < 0.30) {
@@ -705,20 +723,24 @@ export class Game {
 
             this.boss.hit();
             this.combo++;
-            this.score += 50 * this.combo;
+            const points = 50 * this.combo;
+            this.score += points;
+
             this.floatingTexts.push({
-                text: `+${50 * this.combo}`,
+                text: `+${points}`,
                 x: this.boss!.x + this.boss!.w / 2,
                 y: this.boss!.y,
-                color: '#ffcc00',
+                color: '#ff3366',
                 alpha: 1.0,
-                vy: -70
+                vy: -90,
+                scale: 1.8
             });
+
             this.particles.emit(ball.x, ball.y, CONFIG.COLORS.BOSS, 15);
             this.hitStopTimer = 0.06;
-
-            // 🚀 ADD HEAVIER BOSS SHAKE HERE
             this.renderer.triggerShake(150);
+
+            this.flashTimer = 0.1;
 
             AudioSys.playTone(150 + this.combo * 10, 'sawtooth', 0.15);
         }
@@ -861,6 +883,10 @@ export class Game {
 
         if (AudioSys.getMuted()) {
             this.renderer.drawText(`Muted`, CONFIG.GAME_WIDTH - 50, 60, 12, 'right', '#ff5555');
+        }
+
+        if (this.flashTimer > 0) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, `rgba(0, 255, 204, ${this.flashTimer * 2})`);
         }
 
         if (this.state === GameState.Menu) {
@@ -1006,7 +1032,7 @@ export class Game {
         for (const ft of this.floatingTexts) {
             this.renderer.ctx.save();
             this.renderer.ctx.globalAlpha = Math.max(0, ft.alpha);
-            this.renderer.drawText(ft.text, ft.x, ft.y, 14, 'center', ft.color);
+            this.renderer.drawText(ft.text, ft.x, ft.y, Math.round(14 * ft.scale), 'center', ft.color);
             this.renderer.ctx.restore();
         }
 
