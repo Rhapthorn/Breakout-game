@@ -1,17 +1,17 @@
-[project_readme_v2_5_0.md](https://github.com/user-attachments/files/33901856/project_readme_v2_5_0.md)
-# Galactic Breakout (v2.5.0)
+[galactic_breakout_readme.md](https://github.com/user-attachments/files/34069475/galactic_breakout_readme.md)
+# Galactic Breakout (v3.0.0)
 
 A modern, Windows-friendly desktop reimagining of the classic arcade game Breakout, built with HTML5 Canvas, TypeScript, and Electron.
 
 ## Overview
 
-This project elevates the traditional brick-breaking formula with an escalating 15-level campaign, intense multi-phase FSM boss encounters, and a physics-driven combo system. Packaged as a native Windows desktop application via `electron-builder`, it features a locked 800x600 arcade-style resolution, custom iconography, and robust local file-based data persistence for a seamless standalone experience.
+This project elevates the traditional brick-breaking formula with an escalating 15-level campaign, intense multi-phase FSM boss encounters, a physics-driven combo system, and immersive arcade juice. Packaged as a native Windows desktop application via `electron-builder`, it features a locked 800x600 arcade-style resolution, custom iconography, a robust local file-based data persistence system, and dynamic audio-visual feedback.
 
-## Key Features in v2.5.0
+## Key Features in v3.0.0
 
-* **Persistent High Scores & Boss Progression:** Implemented a lightweight, zero-dependency Node.js file storage system (`game_data.json`) via Electron IPC. The app now tracks top pilot high scores and records lifetime boss kill counts securely without requiring native C++ database bindings.
+* **Persistent High Scores & Boss Progression:** Implemented a lightweight, zero-dependency Node.js file storage system (`game_data.json`) via Electron IPC. The app tracks top pilot high scores and records lifetime boss kill counts securely without requiring native C++ database bindings.
 * **15-Level Campaign & FSM Boss Fights:** Progressive difficulty scaling, culminating in challenging Finite State Machine (FSM) boss encounters featuring 4 distinct attack patterns (Radial Bursts, Shield Minions, Orbital Strikes, and Gravity Orbs) across dual phases.
-* **Dynamic Visuals:** A continuous parallax starfield with background colors that shift and intensify as the player advances through the galaxy, complete with dynamic particle effects and invulnerability flashing.
+* **Dynamic Visuals & Arcade Juice:** Features a continuous parallax starfield, neon ball motion trails, impact-driven **Screen Shake**, juiced-up **Scaling Score Popups** with dynamic combo color coding, and bright **Wave-Clear Screen Flashes**.
 * **Physics & Combo System:** Angle-based ball deflection, hit-stop mechanics on impact, and score multipliers for consecutive brick destructions.
 * **Power-Up Arsenal:** 
   * 🟦 **Wide:** Expands paddle width.
@@ -20,6 +20,7 @@ This project elevates the traditional brick-breaking formula with an escalating 
   * 🟥 **Laser:** Equips the paddle with dual-firing lasers to melt through bricks and bosses.
   * 🟨 **Magnetic:** Catches and holds the ball on the paddle for tactical relaunching.
   * 💗 **Extra Life:** Grants a 1-Up.
+* **Audio & Options Customization:** Fully integrated Options Menu allowing pilots to toggle SFX audio on or off dynamically with instant feedback.
 * **Native Windows Integration:** Built-in IPC communication bridge between the Electron main process and the game engine, packaged cleanly for standalone execution.
 
 ## Tech Stack
@@ -32,7 +33,8 @@ This project elevates the traditional brick-breaking formula with an escalating 
 
 * **A / D** or **Left / Right Arrows:** Move Paddle
 * **Mouse:** Move Paddle (Alternative)
-* **Space / Left Click:** Launch Ball / Start Game / Next Level
+* **Space / Enter / Left Click:** Launch Ball / Start Game / Next Level / Confirm
+* **W / S / Up / Down Arrows:** Navigate Menus / Options
 * **Escape:** Pause Game
 * **M:** Toggle Audio Mute
 
