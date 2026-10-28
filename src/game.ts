@@ -14,7 +14,6 @@ import {Powerup} from './entities/powerup';
 import {Boss} from './entities/boss';
 import {StorageHelper} from './storageHelper';
 
-
 interface Star {
     x: number;
     y: number;
@@ -48,6 +47,9 @@ export class Game {
     boss: Boss | null = null;
     stars: Star[] = [];
 
+    public initials: string[] = ['A', 'A', 'A'];
+    public currentInitialIndex: number = 0;
+
     currentLevel = 0;
     lives = 3;
     score = 0;
@@ -55,7 +57,6 @@ export class Game {
     combo = 0;
     hitStopTimer = 0;
     laserTimer = 0;
-
 
     menuSelection = 0; // 0: Start, 1: Leaderboard, 2: Options, 3: Exit
     floatingTexts: FloatingText[] = [];
@@ -89,7 +90,6 @@ export class Game {
 
     loadLevel(levelIndex: number) {
         this.currentLevel = levelIndex;
-
 
         Storage.saveProgress(this.currentLevel, this.score, this.lives);
 
@@ -151,7 +151,6 @@ export class Game {
         this.loadLevel(this.currentLevel);
     }
 
-    // src/game.ts
     handleInput() {
         if (this.state === GameState.Menu) {
             const hasSave = !!Storage.loadProgress();
@@ -178,7 +177,7 @@ export class Game {
                         this.score = saved.score;
                         this.currentLevel = saved.level;
                         this.loadLevel(this.currentLevel);
-                        this.state = GameState.Playing; // 🚀 Crucial: switch state to Playing
+                        this.state = GameState.Playing;
                     } else {
                         this.score = 0;
                         this.lives = 3;
@@ -194,14 +193,11 @@ export class Game {
                     this.currentLevel = 0;
                     Storage.saveProgress(this.currentLevel, this.score, this.lives);
                     this.loadLevel(this.currentLevel);
-                    this.state = GameState.Playing; // 🚀 Crucial: switch state to Playing
+                    this.state = GameState.Playing;
                 } else if (selectedOpt === 'LEADERBOARD') {
                     this.state = GameState.Leaderboard;
-                    this.isLoadingLeaderboard = true;
-                    StorageHelper.getLeaderboard().then(scores => {
-                        this.leaderboardEntries = scores || [];
-                        this.isLoadingLeaderboard = false;
-                    });
+                    this.leaderboardEntries = JSON.parse(localStorage.getItem('breakout_leaderboard') || '[]');
+                    this.isLoadingLeaderboard = false;
                 } else if (selectedOpt === 'OPTIONS') {
                     this.state = GameState.Options;
                 } else if (selectedOpt === 'EXIT') {
@@ -216,7 +212,6 @@ export class Game {
             if (Input.consume('Escape')) {
                 this.state = GameState.Paused;
             }
-            // Press Space or Enter to launch the ball from the paddle
             if (Input.consume('Space') || Input.consume('Enter')) {
                 for (const ball of this.balls) {
                     if (typeof (ball as any).launch === 'function') {
@@ -250,6 +245,57 @@ export class Game {
                 } else {
                     this.loadLevel(this.currentLevel + 1);
                 }
+            }
+        } else if (this.state === GameState.EnterInitials) {
+            if (Input.consume('ArrowUp') || Input.consume('KeyW')) {
+                let charCode = this.initials[this.currentInitialIndex].charCodeAt(0);
+                charCode = charCode === 90 ? 65 : charCode + 1;
+                this.initials[this.currentInitialIndex] = String.fromCharCode(charCode);
+                AudioSys.playTone(400, 'sine', 0.05);
+            }
+
+            if (Input.consume('ArrowDown') || Input.consume('KeyS')) {
+                let charCode = this.initials[this.currentInitialIndex].charCodeAt(0);
+                charCode = charCode === 65 ? 90 : charCode - 1;
+                this.initials[this.currentInitialIndex] = String.fromCharCode(charCode);
+                AudioSys.playTone(400, 'sine', 0.05);
+            }
+
+            if (Input.consume('ArrowLeft') || Input.consume('KeyA')) {
+                this.currentInitialIndex = Math.max(0, this.currentInitialIndex - 1);
+                AudioSys.playTone(500, 'sine', 0.05);
+            }
+
+            if (Input.consume('ArrowRight') || Input.consume('KeyD')) {
+                this.currentInitialIndex = Math.min(2, this.currentInitialIndex + 1);
+                AudioSys.playTone(500, 'sine', 0.05);
+            }
+
+            if (Input.consume('Enter') || Input.consume('Space')) {
+                const finalName = this.initials.join('');
+
+                const currentScores = JSON.parse(localStorage.getItem('breakout_leaderboard') || '[]');
+                currentScores.push({
+                    playerName: finalName,
+                    score: this.score,
+                    levelReached: this.currentLevel + 1
+                });
+
+                currentScores.sort((a: any, b: any) => b.score - a.score);
+                localStorage.setItem('breakout_leaderboard', JSON.stringify(currentScores.slice(0, 10)));
+
+                StorageHelper.saveScore(this.score, this.currentLevel + 1);
+
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    Storage.setHighScore(this.score);
+                }
+
+                AudioSys.playTone(800, 'sine', 0.1);
+                this.state = GameState.Leaderboard;
+
+                this.leaderboardEntries = JSON.parse(localStorage.getItem('breakout_leaderboard') || '[]');
+                this.isLoadingLeaderboard = false;
             }
         }
 
@@ -293,7 +339,8 @@ export class Game {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
             ft.y += ft.vy * dt;
-            ft.alpha -= dt * 1.5; // Fades out over ~0.6 seconds
+
+            ft.alpha -= dt * 1.5;
             if (ft.alpha <= 0) {
                 this.floatingTexts.splice(i, 1);
             }
@@ -382,6 +429,7 @@ export class Game {
         for (let i = this.lasers.length - 1; i >= 0; i--) {
             const l = this.lasers[i];
             l.y -= CONFIG.LASER_SPEED * dt;
+
             if (l.vx) l.x += l.vx * dt;
 
             let hit = false;
@@ -471,14 +519,19 @@ export class Game {
         AudioSys.playTone(150, 'sawtooth', 0.4);
 
         if (this.lives <= 0) {
-            this.state = GameState.GameOver;
             Storage.clearProgress();
 
-            StorageHelper.saveScore(this.score, this.currentLevel + 1);
-
-            if (this.score > this.highScore) {
-                this.highScore = this.score;
-                Storage.setHighScore(this.score);
+            if (this.score > 0) {
+                this.initials = ['A', 'A', 'A'];
+                this.currentInitialIndex = 0;
+                this.state = GameState.EnterInitials;
+            } else {
+                this.state = GameState.GameOver;
+                StorageHelper.saveScore(this.score, this.currentLevel + 1);
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    Storage.setHighScore(this.score);
+                }
             }
         } else {
             this.balls = [];
@@ -774,7 +827,6 @@ export class Game {
                 ? ['CONTINUE CAMPAIGN', 'START NEW CAMPAIGN', 'LEADERBOARD', 'OPTIONS', 'EXIT']
                 : ['START CAMPAIGN', 'LEADERBOARD', 'OPTIONS', 'EXIT'];
 
-            // Prevent selection index out of bounds if options list length changes
             if (this.menuSelection >= options.length) {
                 this.menuSelection = 0;
             }
@@ -802,7 +854,6 @@ export class Game {
 
             this.renderer.drawText('Use W/S or Arrow Keys to Navigate, Enter to Select', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 180, 12, 'center', '#666666');
 
-
         } else if (this.state === GameState.Leaderboard) {
             this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
             this.renderer.drawGlowText('TOP PILOTS', CONFIG.GAME_WIDTH / 2, 70, 36, 'center', '#00e5ff', '#0088ff', 15);
@@ -812,7 +863,6 @@ export class Game {
             } else if (this.leaderboardEntries.length === 0) {
                 this.renderer.drawText('NO FLIGHT RECORDS FOUND', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 16, 'center', '#ff3366');
             } else {
-                // Table Header Layout
                 const startY = 150;
                 const colRankX = CONFIG.GAME_WIDTH / 2 - 180;
                 const colNameX = CONFIG.GAME_WIDTH / 2 - 90;
@@ -826,7 +876,6 @@ export class Game {
 
                 this.renderer.drawStrokeRect(CONFIG.GAME_WIDTH / 2 - 220, startY + 15, 440, 2, 'rgba(0, 229, 255, 0.3)', 1, 2);
 
-                // Table Rows
                 this.leaderboardEntries.slice(0, 5).forEach((entry, idx) => {
                     const rowY = startY + 45 + (idx * 35);
                     const color = idx === 0 ? '#00ffcc' : '#ffffff';
@@ -869,13 +918,38 @@ export class Game {
                 this.renderer.drawGlowText('LEVEL COMPLETE!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20, 42, 'center', '#ffcc00', '#aaaa00', 15);
                 this.renderer.drawText('Press Space for Next Level', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 40, 24, 'center', '#ffffff');
             }
+        } else if (this.state === GameState.EnterInitials) {
+            this.renderer.drawRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(5, 5, 15, 0.95)');
+            this.renderer.drawGlowText('NEW HIGH SCORE!', CONFIG.GAME_WIDTH / 2, 180, 36, 'center', '#00ffcc', '#00aaaa', 15);
+            this.renderer.drawText(`SCORE: ${this.score}`, CONFIG.GAME_WIDTH / 2, 240, 24, 'center', '#ffffff');
+
+            const spacing = 80;
+            const startX = (CONFIG.GAME_WIDTH / 2) - spacing;
+
+            for (let i = 0; i < 3; i++) {
+                const isSelected = i === this.currentInitialIndex;
+                const color = isSelected ? '#ff00ff' : '#ffffff';
+                const yOffset = isSelected ? Math.sin(Date.now() / 150) * 5 : 0;
+
+                this.renderer.drawText(this.initials[i], startX + (i * spacing), 350 + yOffset, 48, 'center', color);
+
+                if (isSelected) {
+                    this.renderer.drawRect(startX + (i * spacing) - 20, 370 + yOffset, 40, 4, '#ff00ff');
+                } else {
+                    this.renderer.drawRect(startX + (i * spacing) - 20, 370, 40, 4, '#555555');
+                }
+            }
+
+            this.renderer.drawText('W/S to Change | A/D to Move | ENTER to Save', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 60, 14, 'center', '#aaaaaa');
         }
+
         for (const ft of this.floatingTexts) {
             this.renderer.ctx.save();
             this.renderer.ctx.globalAlpha = Math.max(0, ft.alpha);
             this.renderer.drawText(ft.text, ft.x, ft.y, 14, 'center', ft.color);
             this.renderer.ctx.restore();
         }
+
         this.renderer.endFrame();
     }
 }

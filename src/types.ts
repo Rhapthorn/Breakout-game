@@ -6,8 +6,9 @@ export enum GameState {
     GameOver,
     GameCompleted,
     LevelComplete,
-    Leaderboard, // <-- Add this
-    Options      // <-- Add this
+    Leaderboard,
+    Options,
+    EnterInitials
 }
 
 export enum PowerupType {
