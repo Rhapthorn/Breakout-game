@@ -141,6 +141,17 @@ export class Game {
         this.hitStopTimer = 0;
         this.state = GameState.Playing;
 
+        // 🚀 DYNAMIC DIFFICULTY: Scales every 3 levels
+        const difficultyTier = Math.floor(this.currentLevel / 3);
+
+        // 1. Increase ball speed by 15% per tier
+        const speedBoost = 1.0 + (difficultyTier * 0.15);
+        this.balls.forEach(b => b.speedMulti = speedBoost);
+
+        // 2. Shrink paddle width by 10% per tier (but never smaller than 60% of original size)
+        const paddleShrink = Math.max(0.6, 1.0 - (difficultyTier * 0.10));
+        this.paddle.setWidthMultiplier(paddleShrink);
+
         Storage.saveProgress(this.currentLevel, this.score, this.lives);
     }
 
