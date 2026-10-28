@@ -672,6 +672,9 @@ export class Game {
 
                     this.hitStopTimer = 0.04;
 
+                    // 🚀 ADD SCREEN SHAKE HERE
+                    this.renderer.triggerShake(100);
+
                     if (!brick.isIndestructible && Math.random() < 0.30) {
                         const types = [PowerupType.Wide, PowerupType.Multi, PowerupType.Slow, PowerupType.ExtraLife, PowerupType.Magnetic, PowerupType.Laser];
                         const type = types[Math.floor(Math.random() * types.length)];
@@ -713,6 +716,10 @@ export class Game {
             });
             this.particles.emit(ball.x, ball.y, CONFIG.COLORS.BOSS, 15);
             this.hitStopTimer = 0.06;
+
+            // 🚀 ADD HEAVIER BOSS SHAKE HERE
+            this.renderer.triggerShake(150);
+
             AudioSys.playTone(150 + this.combo * 10, 'sawtooth', 0.15);
         }
     }
